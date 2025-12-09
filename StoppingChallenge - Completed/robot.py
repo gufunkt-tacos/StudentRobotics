@@ -22,7 +22,7 @@
 # WIFI connection to a laptop/PC or tablet. Search for wifi sources. Use SR password then open the following in a browser
 # http://robot.lan   
 
-from sr.robot3 import * # New SR code based on Python 3.11 (I,m using 3.12.2)
+from sr.robot3 import * # New SR code based on Python 3.11 (I'm using 3.12.2)
 import time
 import serial   # ignore import error if you get one
 import math
