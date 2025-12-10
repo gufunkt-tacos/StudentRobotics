@@ -16,6 +16,8 @@ This is a basic repository where we can upload our code for the Student Robotics
 
 
 ## Helpful Links:
-Docs: 
+Docs: https://studentrobotics.org/docs/
+
 Challenges: https://studentrobotics.org/docs/resources/2026/challenges.html
-Rules: 
+
+Rules: https://studentrobotics.org/docs/resources/2026/rulebook.html
