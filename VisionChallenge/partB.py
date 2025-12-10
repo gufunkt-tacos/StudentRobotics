@@ -467,6 +467,10 @@ def LED_C_green():
     robot.kch.leds[LED_C].colour = Colour.GREEN   
 def LED_C_red():
     robot.kch.leds[LED_C].colour = Colour.RED
+def LED_ALL_off():
+    robot.kch.leds[LED_A].colour = Colour.OFF
+    robot.kch.leds[LED_B].colour = Colour.OFF
+    robot.kch.leds[LED_C].colour = Colour.OFF
 
 
 def distance_ultrasound():
@@ -605,6 +609,22 @@ print("")
 # Set-up completed. Place your game code here
 #*******************************************************************************
 
+robot.wait_start()
 
-
-# Um, I haven't written the code yet...
+ 
+while True:
+    markers = robot.camera.see()
+    if len(markers) == 0:
+        continue
+    angle = markers[0].position.horizontal_angle * 180/pi
+    if angle < - 15:
+        LED_ALL_off()
+        LED_A_blue()
+        continue
+    if angle > 15:
+        LED_ALL_off()
+        LED_B_red()
+        continue
+    else:
+        LED_ALL_off()
+        LED_C_blue()
