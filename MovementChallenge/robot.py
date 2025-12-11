@@ -36,8 +36,6 @@ time_started_robot = time.time()   # get time when ON/OFF switch pressed
 #robot = Robot(wait_for_start=True)   #, no_powerboard=True) # no_powerboard if not using SR kit
 robot = Robot(wait_for_start=False)#, no_powerboard=True) # no_powerboard if not using SR kit
 
-arduino = robot.arduinos["752303138333517171B1"] # ID NEEDS TO BE CHANGED
-print("CHANGE ID!")
 
 #robot.servo_board.servos[0].set_duty_limits(800,2200)
 #robot = Robot.ignored_arduinos=["7543535313835170F0B0"]
