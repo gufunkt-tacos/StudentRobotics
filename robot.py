@@ -22,10 +22,10 @@
 # WIFI connection to a laptop/PC or tablet. Search for wifi sources. Use SR password then open the following in a browser
 # http://robot.lan   
 
-from sr.robot3 import * # New SR code based on Python 3.11 (I'm using 3.12.2)
+from sr.robot3 import Robot, Colour, LED_A, LED_B, LED_C
 import time
 import serial   # ignore import error if you get one
-from math import cos, sin, pi, sqrt, atan2
+from math import pi
 import serial.tools.list_ports
 
 global time_started_robot
@@ -107,7 +107,7 @@ def find_ports(portname: str) -> tuple[str, str]:
 #                       DRIVE MOTOR RELATED FUNCTIONS
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-def dis_2sec_timeout():
+def dis_2sec_timeout() -> None:
     """
     This function disables the MD25 motor controller 2 second timeout
     I2C interface uses 1 byte addressed device mode 0x55
@@ -123,14 +123,14 @@ def dis_2sec_timeout():
     if resp != 0:
         print ("Motor timeout disabled")
     return
-#_______________________________________________________________________________
 
-#        enables_2sec_timeout()
-# This function enables the MD25 motor controller 2 second timeout
-# x55 selects I2C, Blue MD25 base address xB0, command reg x10, 1byte, enable x33
-# x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
 
-def enables_2sec_timeout():
+def enables_2sec_timeout() -> None:
+    """
+    This function enables the MD25 motor controller 2 second timeout.
+    x55 selects I2C, Blue MD25 base address xB0, command reg x10, 1byte, enable x33.
+    x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32.
+    """
     ser.write( b"\x55\xB2\x10\x01\x33" )  # b required to change unicode to bytes
     n = ser.read(1) # get acknowledge
     resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
@@ -139,11 +139,16 @@ def enables_2sec_timeout():
     return
 #_______________________________________________________________________________
 #        reset_both_encoders()
-# This function resets both wheel encoder values to zero
-# x55 selects I2C, Blue MD25base address xB0, command reg x10, 1byte, reset encoders x20
-# x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
 
-def reset_both_encoders():
+
+def reset_both_encoders() -> None:
+    """
+    This function resets both wheel encoder values to zero.
+    """
+
+    # x55 selects I2C, Blue MD25base address xB0, command reg x10, 1byte, reset encoders x20
+    # x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
+
     resp = 0
     #print ("in reset_both encoders ")
     ser.write(b"\x55\xB2\x10\x01\x20")  # b required to change unicode to bytes
@@ -156,18 +161,20 @@ def reset_both_encoders():
         print ("wheel encoders reset")
     time.sleep(.1)
     return
-#_______________________________________________________________________________
 
-#        encoder_1() encoder(2)
-# This function reads the 4 byte value from encoder 1 and converts to an integer
-# This value is saved as a variable "encoder1"
+
+
 # x55 selects I2C, MD25 base address xB0 (B1 to read), encoder data x02-x05, 1byte
 # x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , encoder data x02-x05, 1byte
 # x02 - 05  are the registers for the four encoder bytes
 # Read hibyte first to capture count for lower bytes
 # x01 is number of bytes (1) to be read from each register
 
-def encoder_1():
+def encoder_1() -> int:
+    """
+    This function reads the 4 byte value from encoder 1 and converts to an integer.
+    """
+
     #print "reading encoder 1"
     #MD25 is a single byte register device. Handles auto-increment of register address
     #select I2C device (x55), register to start read from (x02) and number of bytes (x04)
@@ -180,11 +187,12 @@ def encoder_1():
     encoder1 = Enc1byte0 + (Enc1byte1 << 8) +(Enc1byte2 << 16) + (Enc1byte3 << 24)
     #print ("encoder1 =", encoder1)
     return encoder1
-#_______________________________________________________________________________
-# This function reads the 4 byte value from encoder 2 and converts to an integer
-# This value is saved as a variable "encoder2"
 
-def encoder_2():
+def encoder_2() -> int:
+    """
+    This function reads the 4 byte value from encoder 1 and converts to an integer.
+    """
+
     #print "reading encoder 2"
     #MD25 is a single byte register device. Handles auto-increment of address
     #select I2C device (x55), register to start read from (x06) and number of bytes (x04)
@@ -197,15 +205,19 @@ def encoder_2():
     encoder2 = Enc2byte0 + (Enc2byte1 << 8) +(Enc2byte2 << 16) + (Enc2byte3 << 24)
     #print ("encoder2 =", encoder2)
     return encoder2
-#_______________________________________________________________________________
 
-#   set_acel_rate(acelrate)
-# This function sets the motor acceleration rate, range 1 to 10 fastest
-# Do not set to higher than 5(default)
-# x55 selectsI2C, Blue MD25 base address xB0, command accel rate reg x10, 1byte, accelrate
-# x55 selectsI2C, Orange MD25 base address xB2, command accel rate reg x10, 1byte, accelrate
-# x03 sets rate to 3 full revers to full forward in 2.1 seconds
-def set_acel_rate(acelrate):
+
+def set_acel_rate(acelrate) -> None:
+    """
+    This function sets the motor acceleration rate, range 1 to 10 fastest
+    Do not set to higher than 5 (default)
+    
+    :param acelrate: Description
+    """
+
+    # x55 selectsI2C, Blue MD25 base address xB0, command accel rate reg x10, 1byte, accelrate
+    # x55 selectsI2C, Orange MD25 base address xB2, command accel rate reg x10, 1byte, accelrate
+    # x03 sets rate to 3 full revers to full forward in 2.1 seconds
 
     ser.write( b"\x55\xB2\x10\x01\x05" )  # b required to change unicode to bytes
     n = ser.read(1) # get acknowledge
@@ -214,19 +226,22 @@ def set_acel_rate(acelrate):
     if resp != 0 :
         print ("Accel rate set at ", acelrate)
     return
-#_______________________________________________________________________________
 
-#   drive_both(speed1, speed2)
-# Independant control of both motors. Encoders reset at start of routine
-# Send a command to write to speed1 and speed 2
-# Send speed 1,2 values in the range -128 to +127
-# x55 selects I2C, Blue MD25 base address xB0, mode reg x0F, 1bytes, x00 = mode 0
-# x55 selects I2C, Orange MD25 base address xB2, mode reg x0F, 1bytes, x00 = mode 0
-# last two values are speed values e.g x70, x90. In default mode0:
-# 0(0H) = full reverse, 128(80H) stop, 255(FFH) full forward
-# but this function converts from -128 reverse 0, stop +127 forward
 
-def drive_both(speed1, speed2):
+
+def drive_both(speed1: int, speed2:int) -> None:
+    """
+    Independant control of both motors. Encoders reset at start of routine.
+    Speed 1,2 values in the range -128 to +127
+    """
+    # Send a command to write to speed1 and speed 2
+    # x55 selects I2C, Blue MD25 base address xB0, mode reg x0F, 1bytes, x00 = mode 0
+    # x55 selects I2C, Orange MD25 base address xB2, mode reg x0F, 1bytes, x00 = mode 0
+    # last two values are speed values e.g x70, x90. In default mode0:
+    # 0(0H) = full reverse, 128(80H) stop, 255(FFH) full forward
+    # but this function converts from -128 reverse 0, stop +127 forward
+
+
     reset_both_encoders()
     # Convert passed variables to +ve integers in the range 0 to 255
     # +ve speed = forward, +ve turn = clockwise
@@ -239,11 +254,13 @@ def drive_both(speed1, speed2):
     ser.write(bytes([0x55, 0xB0, 0x00, 0x02, speed1, speed2]))
     n = ser.read(1) # get acknowledge
     return
-#_______________________________________________________________________________
 
-#       motor_stop()
-#   Stop both motors
-def motor_stop():
+
+
+def motor_stop() -> None:
+    """
+    Stop both motors.
+    """
     ser.write( b"\x55\xB2\x00\x02\x80\x80" )  # b required to change unicode to bytes
     n = ser.read(1) # get acknowledge
     time.sleep(.1)
@@ -291,7 +308,7 @@ def drive_sync(speed, turn):
 
 def drive_speed_distance(speed: float, distance: float) -> bool:
     """
-    Should be used in millimetres
+    Should be used in millimetres.
     Resets both encoders at start of routine.
     Drive in a straight line at a defined speed (-128 to +127).
     Set speed in the range 0 to 127 forward, 0 to -128 reverse.
