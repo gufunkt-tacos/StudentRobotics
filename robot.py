@@ -1,5 +1,5 @@
 # 18 November 2025
-# # Base I2c (8 bit) default address for the MD25 = Blue xB0 (xB1 read), Orange xB2(xB3 read)
+# Base I2C (8 bit) default address for the MD25 = Blue xB0 (xB1 read), Orange xB2(xB3 read)
 # Add the ID codes e.g "SR0HG1B" for your specific SR modules
 # Be careful with case, upper or lower and 0's O's etc. Copy from your log file if unsure
 # Camera Board  
@@ -24,14 +24,13 @@
 
 from sr.robot3 import Robot, Colour, LED_A, LED_B, LED_C
 import time
-import serial   # ignore import error if you get one
+import serial
 from math import pi
 import serial.tools.list_ports
 
 global time_started_robot
-time_started_robot = time.time()   # get time when ON/OFF switch pressed
+time_started_robot = time.time() 
 
-#robot = Robot(wait_for_start=True)   #, no_powerboard=True) # no_powerboard if not using SR kit
 robot = Robot(wait_for_start=False)#, no_powerboard=True) # no_powerboard if not using SR kit
 
 arduino = robot.arduinos["75230313833351314151"]
@@ -107,13 +106,16 @@ def find_ports(portname: str) -> tuple[str, str]:
 #                       DRIVE MOTOR RELATED FUNCTIONS
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+
 def dis_2sec_timeout() -> None:
     """
     This function disables the MD25 motor controller 2 second timeout
-    I2C interface uses 1 byte addressed device mode 0x55
-    x55 selects I2C, Blue MD25 base address xB0(write)xB1(read) , command reg x10, 1byte, disable x32
-    x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
     """
+
+    # I2C interface uses 1 byte addressed device mode 0x55
+    # x55 selects I2C, Blue MD25 base address xB0(write)xB1(read) , command reg x10, 1byte, disable x32
+    # x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
+
 
     resp = 0
     ser.write( b"\x55\xB2\x10\x01\x32" )  # b required to change unicode to bytes
@@ -128,17 +130,18 @@ def dis_2sec_timeout() -> None:
 def enables_2sec_timeout() -> None:
     """
     This function enables the MD25 motor controller 2 second timeout.
-    x55 selects I2C, Blue MD25 base address xB0, command reg x10, 1byte, enable x33.
-    x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32.
     """
+
+    # x55 selects I2C, Blue MD25 base address xB0, command reg x10, 1byte, enable x33.
+    # x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32.
+
+
     ser.write( b"\x55\xB2\x10\x01\x33" )  # b required to change unicode to bytes
     n = ser.read(1) # get acknowledge
     resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
     if resp != 0 :
         print ("Motor timeout enabled")
     return
-#_______________________________________________________________________________
-#        reset_both_encoders()
 
 
 def reset_both_encoders() -> None:
@@ -209,10 +212,10 @@ def encoder_2() -> int:
 
 def set_acel_rate(acelrate) -> None:
     """
+    THIS FUNCTION CURRENTLY DOES NOT WORK!
+
     This function sets the motor acceleration rate, range 1 to 10 fastest
     Do not set to higher than 5 (default)
-    
-    :param acelrate: Description
     """
 
     # x55 selectsI2C, Blue MD25 base address xB0, command accel rate reg x10, 1byte, accelrate
@@ -229,9 +232,10 @@ def set_acel_rate(acelrate) -> None:
 
 
 
-def drive_both(speed1: int, speed2:int) -> None:
+def drive_both(speed1: int, speed2: int) -> None:
     """
     Independant control of both motors. Encoders reset at start of routine.
+
     Speed 1,2 values in the range -128 to +127
     """
     # Send a command to write to speed1 and speed 2
@@ -249,10 +253,10 @@ def drive_both(speed1: int, speed2:int) -> None:
     speed2 = speed2 + 128
     #Set up mode register (15, x0F) for mode 0,Independant control of motors, no sync
     ser.write( b"\x55\xB2\x0F\x01\x00" )  # b required to change unicode to bytes
-    n = ser.read(1) # get acknowledge
+    ser.read(1) # get acknowledge
     #Write to registers speed 1 (speed1) and speed 2 (speed2)
     ser.write(bytes([0x55, 0xB0, 0x00, 0x02, speed1, speed2]))
-    n = ser.read(1) # get acknowledge
+    ser.read(1) # get acknowledge
     return
 
 
@@ -266,16 +270,23 @@ def motor_stop() -> None:
     time.sleep(.1)
     # reset encoders elsewhere if required
     return
-#_______________________________________________________________________________
 
-#       drive_sync(speed, turn)
-# Synchronised speed on both motors. Resets both encoders at beginning of routine
-# First set up mode register (15, x0F) for mode 2
-# Send a command to write to speed1 for speed and speed 2 for turn (0 if no turn required)
-# x55 selects I2C, MD25 base address xB2, mode reg x0F, 1byte, x02 = mode 2
-# Then write to speed 1 and 2 as per drive_both
 
-def drive_sync(speed, turn):
+
+def drive_sync(speed: int, turn: int) -> None:
+    """
+    Synchronised speed on both motors.
+
+    Resets both encoders at beginning of routine.
+    """
+
+    # First set up mode register (15, x0F) for mode 2
+    # Send a command to write to speed1 for speed and speed 2 for turn (0 if no turn required)
+    # x55 selects I2C, MD25 base address xB2, mode reg x0F, 1byte, x02 = mode 2
+    # Then write to speed 1 and 2 as per drive_both
+
+
+
     # This sets up MD25 register for speed turn. Turn will continue until motor stop commanded
     # Under MD25 control of speed only. Does not use encoders
     # If turn set to 0 then speed selects forward & reverse speeds
@@ -288,8 +299,10 @@ def drive_sync(speed, turn):
     reset_both_encoders() # may not be necessary
     #print ("in drive_sync(speed,turn):speed ",speed, " turn ", turn)
     #reset encoders elsewhere if required. Encoders not used in this mode
-    if speed >= 127 :
+    if speed not in range(-128, 128):
         speed = 127
+    if turn not in range(-128, 128):
+        turn = 127
     speed = speed + 128
     turn = turn + 128
     #Set up mode register (15, x0F) for mode 2
@@ -306,12 +319,14 @@ def drive_sync(speed, turn):
 
 
 
-def drive_speed_distance(speed: float, distance: float) -> bool:
+def drive_speed_distance(speed: int, distance: float) -> bool:
     """
+    Drive in a straight line at a defined speed (-128 to +127)
+
     Should be used in millimetres.
+
     Resets both encoders at start of routine.
     Drive in a straight line at a defined speed (-128 to +127).
-    Set speed in the range 0 to 127 forward, 0 to -128 reverse.
     Uses synchronised speed mode.
     Drive times out after a calculated time is exceeded.
     """
@@ -338,7 +353,7 @@ def drive_speed_distance(speed: float, distance: float) -> bool:
     drive_sync(speed, 0) # start motors
     # THIS DELAY IS ESSENTIAL TO CORRECT OPERATION, OR IS IT ??????
     time.sleep(.1)
-    #If speed > 0 (OK but if <0 then need to correct encoder for -ve values)
+    #If speed > 0 (OK but if < 0 then need to correct encoder for -ve values)
     if speed > 0 :
         while (encoder_1() < required_distance_encoder_value \
         or encoder_2() < required_distance_encoder_value)\
@@ -363,8 +378,32 @@ def drive_speed_distance(speed: float, distance: float) -> bool:
     #print ("encoder 2  value = ",encoder_2())
     return True
 
-#_______________________________________________________________________________
-def turn_speed_angle(speed: float, angle: float) -> bool:
+def drive_actual_speed_distance(speed: float, distance: float) -> bool:
+    """
+    Speed is measured in mm/s
+
+    Distance is measured in mm
+
+    Equivalent in practice to drive_steprate_distance
+    """
+
+    maxSpeed = 2000
+    if abs(speed) > maxSpeed:
+        speed = (speed/abs(speed))*maxSpeed
+    steprate = int((255 / maxSpeed) * speed) - 128
+    return drive_speed_distance(steprate, distance)
+
+
+    
+
+
+def turn_speed_angle(speed: int, angle: float) -> bool:
+    """
+    Speed is defined between -128 (CCW) to +127 (CW)
+
+    Angle is in degrees
+    """
+
     global turn_timeout_time
     global wheelspace
     global wheel_diameter
@@ -401,8 +440,6 @@ def turn_speed_angle(speed: float, angle: float) -> bool:
         motor_stop()
         time.sleep(.1)
     elif speed > 0 :
-    # correction factor for anti-clockwise turn. 1 = no correction
-        angle = angle / 1.0
         while encoder_1() < angle_encoder * angle\
         and ((time.time() - time_started_turn) < turn_timeout_time) : # check drive timeout 10secs:
             pass
@@ -474,6 +511,7 @@ def LED_C_red():
 def distance_ultrasound() -> float:
     """
     Returns value in millimetres.
+
     Trigger pin = 2, Echo pin = 3
     """
     return arduino.ultrasound_measure(2,3)
@@ -503,7 +541,7 @@ def camera_pan(angle):  # Camera servo = servo [0]. Servo Board= "0LX2M". Resolu
     #print("Cam pan angle = ",cam_angle)
     return cam_angle
 
-def servo_02_pan(angle):  #MS24, 270degree servo, 20kg
+def servo_02_pan(angle) -> float:  #MS24, 270degree servo, 20kg
     global cam_angle
     camera_servo_offset = (camera_servo_offset_value/100)*.75  # value of 1 degree = 0.02
     servo_angle = (angle/100)*.75 # + camera_servo_offset # converts angle to range of +/- 1.0
@@ -572,4 +610,3 @@ print("")
 #*******************************************************************************
 # Set-up completed. Place your game code here
 #*******************************************************************************
-
