@@ -212,8 +212,6 @@ def encoder_2() -> int:
 
 def set_acel_rate(acelrate) -> None:
     """
-    THIS FUNCTION CURRENTLY DOES NOT WORK!
-
     This function sets the motor acceleration rate, range 1 to 10 fastest
     Do not set to higher than 5 (default)
     """
@@ -222,7 +220,7 @@ def set_acel_rate(acelrate) -> None:
     # x55 selectsI2C, Orange MD25 base address xB2, command accel rate reg x10, 1byte, accelrate
     # x03 sets rate to 3 full revers to full forward in 2.1 seconds
 
-    ser.write( b"\x55\xB2\x10\x01\x05" )  # b required to change unicode to bytes
+    ser.write(bytes([0x55, 0xB2, 0x10, 0x01, acelrate]))
     n = ser.read(1) # get acknowledge
     resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
     time.sleep(0.1)
@@ -255,7 +253,7 @@ def drive_both(speed1: int, speed2: int) -> None:
     ser.write( b"\x55\xB2\x0F\x01\x00" )  # b required to change unicode to bytes
     ser.read(1) # get acknowledge
     #Write to registers speed 1 (speed1) and speed 2 (speed2)
-    ser.write(bytes([0x55, 0xB0, 0x00, 0x02, speed1, speed2]))
+    ser.write(bytes([0x55, 0xB2, 0x00, 0x02, speed1, speed2]))
     ser.read(1) # get acknowledge
     return
 
@@ -473,6 +471,9 @@ def turn_speed_angle(speed: int, angle: float) -> bool:
 # returns actual distance recorded. Subtract front_sonar_offset to get distance to front of robot
 
 def front_sonar(): # Assumes base address of E0 (write), E1 (read)
+    """
+    IDK how this works, so tell me if you know.
+    """
     # trigger ranging
     ser.write( b"\x55\xE0\x00\x01\x51" )
     n = ser.read(1)  #get acknowledge
@@ -528,6 +529,9 @@ def distance_ultrasound() -> float:
 # Currently set to 500,2500
 
 def camera_pan(angle):  # Camera servo = servo [0]. Servo Board= "0LX2M". Resolution ~ 0.5 degrees
+    """
+    IDK how this works, so tell me if you know.
+    """
     global cam_angle
     camera_servo_offset = (camera_servo_offset_value/100)*1.5  # value of 1 degree = 0.02
     servo_angle = (angle/100)*1.5  + camera_servo_offset # converts angle to range of +/- 1.0
@@ -542,6 +546,9 @@ def camera_pan(angle):  # Camera servo = servo [0]. Servo Board= "0LX2M". Resolu
     return cam_angle
 
 def servo_02_pan(angle) -> float:  #MS24, 270degree servo, 20kg
+    """
+    IDK how this works, so tell me if you know.
+    """
     global cam_angle
     camera_servo_offset = (camera_servo_offset_value/100)*.75  # value of 1 degree = 0.02
     servo_angle = (angle/100)*.75 # + camera_servo_offset # converts angle to range of +/- 1.0
