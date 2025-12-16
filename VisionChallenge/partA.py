@@ -467,8 +467,6 @@ def LED_C_red():
     robot.kch.leds[LED_C].colour = Colour.RED
 
 
-def distance_ultrasound():
-    return arduino.ultrasound_measure(2,3) # ultrasound pins might need to be changed
 
 #_______________________________________________________________________________
 #               camera_pan(angle)
@@ -616,57 +614,54 @@ while True:
     if foundID == True:
         break
 
+originalDistance = distance
+defaultSpeed = 30
+
 startup_jingle()
 robot.wait_start()
 
 LED_B_red()
-drive_speed_distance(30, distance - 150)
+drive_speed_distance(defaultSpeed, distance - 150)
 
 
 
 markers = robot.camera.see()
+distance = 150
 for marker in markers:
     if marker.id == 1:
         distance = marker.position.distance/10
         break
-    else:
-        distance = 150
 
 
 LED_B_blue()
-drive_speed_distance(30, distance - 30)
+drive_speed_distance(defaultSpeed, distance - 30)
 
 
 
 markers = robot.camera.see()
+distance = 30 
 for marker in markers:
     if marker.id == 1:
         distance = marker.position.distance/10
         break
-    else:
-        distance = 30
+
 LED_B_green()
-drive_speed_distance(30, distance - 5)
+drive_speed_distance(defaultSpeed, distance - 20)
+
+drive_speed_distance(- defaultSpeed, 5)
+drive_both(0, 0)
+turn_speed_angle(20, 182)
 
 # now for everything in reverse
-drive_speed_distance(30, -(distance - 5))
+drive_speed_distance(defaultSpeed, (distance - 15)-15)
 LED_B_blue()
-markers = robot.camera.see()
-for marker in markers:
-    if marker.id == 1:
-        distance = marker.position.distance/10
-        break
-    else:
-        distance = 30
 
-drive_speed_distance(30, -(150 - distance))
+distance = 30 
+
+
+drive_speed_distance(defaultSpeed, (150 - distance)-50)
 LED_B_red()
-markers = robot.camera.see()
-for marker in markers:
-    if marker.id == 1:
-        distance = marker.position.distance/10
-        break
-    else:
-        distance = 150
+distance = 150
 
-drive_speed_distance(30, -(200 - distance))
+
+drive_speed_distance(defaultSpeed, (originalDistance - distance - 20)+40)

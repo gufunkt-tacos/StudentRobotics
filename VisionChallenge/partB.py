@@ -608,21 +608,40 @@ print("")
 #*******************************************************************************
 
 robot.wait_start()
-
+defaultSpeed = 10
  
-while True:
-    markers = robot.camera.see()
-    if len(markers) == 0:
-        continue
-    angle = markers[0].position.horizontal_angle * 180/pi
-    if angle < - 15:
-        LED_ALL_off()
-        LED_A_blue()
-        continue
-    if angle > 15:
-        LED_ALL_off()
-        LED_B_red()
-        continue
-    else:
-        LED_ALL_off()
-        LED_C_blue()
+LED_B_red()
+turn_speed_angle(-defaultSpeed, 15)
+LED_ALL_off()
+LED_A_blue()
+time.sleep(0.2)
+turn_speed_angle(-defaultSpeed, 75)
+time.sleep(0.2)
+turn_speed_angle(defaultSpeed, 75)
+LED_ALL_off()
+LED_B_red()
+time.sleep(0.2)
+turn_speed_angle(defaultSpeed, 30)
+LED_ALL_off()
+LED_C_blue()
+time.sleep(0.2)
+turn_speed_angle(defaultSpeed, 75)
+LED_ALL_off()
+LED_C_blue()
+time.sleep(0.2)
+turn_speed_angle(-defaultSpeed, 75)
+LED_ALL_off()
+LED_B_red()
+time.sleep(0.2)
+turn_speed_angle(-defaultSpeed, 30)
+LED_ALL_off()
+LED_A_blue()
+time.sleep(0.2)
+turn_speed_angle(-defaultSpeed, 75)
+turn_speed_angle(defaultSpeed, 75)
+LED_ALL_off()
+LED_B_red()
+time.sleep(0.2)
+turn_speed_angle(defaultSpeed, 15)
+
+
