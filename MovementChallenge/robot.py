@@ -354,7 +354,7 @@ def drive_speed_distance(speed, distance):
     return
 
 #_______________________________________________________________________________
-def turn_speed_angle(speed: float, angle: float) -> None: 
+def turn_speed_angle(speed, angle):
     global turn_timeout_time
     global wheelspace
     global wheel_diameter
@@ -607,15 +607,20 @@ print("")
 # Set-up completed. Place your game code here
 #*******************************************************************************
 
-
 robot.wait_start()
 
-for i in range(3):
-    drive_speed_distance(75, 150)
-    turn_speed_angle(30, -135)
-    drive_speed_distance(75, sqrt(150^2 + 150^2))
-    turn_speed_angle(30, -135)
-    drive_speed_distance(75, 150)
-    turn_speed_angle(30, -90)
 
-startup_jingle()
+for i in range(3):
+    drive_speed_distance(32,150)
+    time.sleep(0.5)
+    turn_speed_angle(16,90)
+    time.sleep(0.5)
+    drive_speed_distance(32,150)
+    time.sleep(0.5)
+    turn_speed_angle(16,135)
+    time.sleep(0.5)
+    drive_speed_distance(32,210)
+    time.sleep(0.5)
+    turn_speed_angle(16,135)
+    time.sleep(0.5)
+
