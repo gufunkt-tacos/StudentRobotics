@@ -693,3 +693,5 @@ while(angle<0):
         if marker.id == 1:
             angle = (marker.position.horizontal_angle)*(180/pi)
             break
+
+#to fix - LEDs A and C are swapped; the robot won't stop going in circles.
