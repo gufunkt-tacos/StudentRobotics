@@ -621,7 +621,8 @@ startup_jingle()
 robot.wait_start()
 
 LED_B_red()
-drive_speed_distance(defaultSpeed, distance - 150)
+distance1 = distance - 160
+drive_speed_distance(defaultSpeed, distance1)
 
 
 
@@ -634,7 +635,8 @@ for marker in markers:
 
 
 LED_B_blue()
-drive_speed_distance(defaultSpeed, distance - 30)
+distance2 = distance - 40
+drive_speed_distance(defaultSpeed, distance2)
 
 
 
@@ -646,22 +648,16 @@ for marker in markers:
         break
 
 LED_B_green()
-drive_speed_distance(defaultSpeed, distance - 20)
-
-drive_speed_distance(- defaultSpeed, 5)
-drive_both(0, 0)
-turn_speed_angle(20, 182)
+distance3 = distance - 7
+drive_speed_distance(defaultSpeed, distance3)
 
 # now for everything in reverse
-drive_speed_distance(defaultSpeed, (distance - 15)-15)
+drive_speed_distance(-defaultSpeed, distance3)
 LED_B_blue()
 
-distance = 30 
 
-
-drive_speed_distance(defaultSpeed, (150 - distance)-50)
+drive_speed_distance(-defaultSpeed, distance2)
 LED_B_red()
-distance = 150
 
 
-drive_speed_distance(defaultSpeed, (originalDistance - distance - 20)+40)
+drive_speed_distance(-defaultSpeed, distance1)
