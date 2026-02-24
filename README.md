@@ -1,6 +1,8 @@
 # Student Robotics
 This is a basic repository where we can upload our code for the Student Robotics competition.
 
+this is such cool such epic hehe
+
 
 <br>
 <img src="/misc/logo.svg" alt="Student Robotics Logo" />
