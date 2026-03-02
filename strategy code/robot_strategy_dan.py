@@ -359,10 +359,11 @@ def turn_speed_angle(speed, angle):
     global turn_timeout_time
     global wheelspace
     global wheel_diameter
+    ang_vel = 72.3
     # nominal rotation speed of robot at speed 32 = 37.5 degrees/s (at speed 32)
     # adjust for accel/decel times etc and add a 2 second margin
     if speed != 0 :
-        turn_timeout_time = (((angle * 32) / 60) /abs(speed)) +3
+        turn_timeout_time = (((angle * 32) / ang_vel) /abs(speed)) +3
     else :
         turn_timeout_time = 15.0 #default drive timeout time
     
@@ -968,24 +969,33 @@ def sign(x):
         return -1
 
 
-def get_floor_base_token():
+def get_base_token():
      Doors_wedge()
      valid_tokens = find_objects("base_tokens")
+     print(valid_tokens)
 
      if (valid_tokens[0] == True):
          
          closest_token_dist = valid_tokens[2][0]
          token_angle = valid_tokens[3][0]
+         print(len(valid_tokens[2]))
          for i in range(0,len(valid_tokens[2])):
              if(valid_tokens[2][i] < closest_token_dist):
                  closest_token_dist = valid_tokens[2][i]
                  token_angle = valid_tokens[3][i]
-        
-         turn_speed_angle(5, token_angle)
+                 print(i)
+                 print(valid_tokens[2][i])
+                 print(valid_tokens[3][i])
+
+         print(token_angle)
+         print(closest_token_dist)
+         turn_speed_angle(15*sign(token_angle), abs(token_angle))
          drive_speed_distance(30, closest_token_dist)
          Doors_open()
-         drive_speed_distance(30, 50)
+         drive_speed_distance(30, 60)
          Doors_wedge()
+     else:
+         return False
 
 def next_arena_token(start, step, direction):
     token = start + (step*direction)
@@ -998,6 +1008,7 @@ def next_arena_token(start, step, direction):
 
 def go_home():
     
+    Doors_wedge()
     closest_token_dist = 8192
     closest_token_angle = 361
     marker_found = False
@@ -1039,5 +1050,55 @@ def go_home():
         go_home()
 
 
+def navigate_obstacle():
+    Doors_wedge()
+    right_sonar = right_front_sonar()
+    left_sonar = left_front_sonar()
+    if(right_sonar < 30 or left_sonar < 30):
+         
+         valid_tokens = find_objects("base_tokens")
+         print(valid_tokens)
+         if (valid_tokens[0] == True):
+            closest_token_dist = valid_tokens[2][0]
+            print(len(valid_tokens[2]))
+            for i in range(0,len(valid_tokens[2])):
+                if(valid_tokens[2][i] < closest_token_dist):
+                    closest_token_dist = valid_tokens[2][i]
+        
+         valid_tokens = find_objects("acid_tokens")
+         print(valid_tokens)
+         if (valid_tokens[0] == True):
+            print(len(valid_tokens[2]))
+            for i in range(0,len(valid_tokens[2])):
+                if(valid_tokens[2][i] < closest_token_dist):
+                    closest_token_dist = valid_tokens[2][i]
+            
+         if (closest_token_dist > 50):
+             turn_speed_angle(32*sign(right_sonar-left_sonar),90)
+             drive_speed_distance(20,50)
+             turn_speed_angle(32*-sign(right_sonar-left_sonar),90)
+
+
+
+
+
 startup_jingle()
 robot.wait_start()
+
+
+
+#try 72.3deg/sec for turn_speed_angle
+#ask keith about turn_speed_angle if this doesnt work
+
+#add logic for get_base_token() to use the arm if it's on the ledge; use the sonar and height sensor to detect this.
+#could we program the robot to only do 90deg angles? would be slower but would make getting tokens from the ledge easier
+
+"""
+strategy: 
+start timer
+immediately run get_base_token(). if it returns false (i.e. no tokens found), move forwards through the arena
+keep running get_base_token()
+have a thread that looks for obstacles using navigate_obstacles and similar things i might write
+after timer reaches a certain threshold, run go_home()
+
+"""
