@@ -967,22 +967,10 @@ def sign(x):
         return 1
     else:
         return -1
-
-
-def get_base_token():
-     angle_offset = 0
-     Doors_wedge()
-     valid_tokens = find_objects("base_tokens")
-     print(valid_tokens)
-
-     if (valid_tokens[0] == True):
-         go_to_closest_token(valid_tokens, angle_offset)   
-         return True
-     camera_pan(45)
-
-
+    
 def go_to_closest_token(valid_tokens, angle_offset):
 
+    scaling = 1
     closest_token_dist = valid_tokens[2][0]
     token_angle = valid_tokens[3][0]
     print(len(valid_tokens[2]))
@@ -994,15 +982,46 @@ def go_to_closest_token(valid_tokens, angle_offset):
             print(valid_tokens[2][i])
             print(valid_tokens[3][i])
 
+    token_angle-=angle_offset
     print(token_angle)
     print(closest_token_dist)
-    turn_speed_angle(10*sign(token_angle), abs(token_angle)/1.5)
+    turn_speed_angle(10*sign(token_angle), abs(token_angle)/scaling)
     drive_speed_distance(40, closest_token_dist)
     Doors_open()
     drive_speed_distance(40, 60)
     Doors_close()
     Doors_wedge()
-    
+
+def get_base_token():
+     camera_pan(0)
+     angle_offset = 0
+     Doors_wedge()
+     valid_tokens = find_objects("base_tokens")
+     print(valid_tokens)
+
+     if (valid_tokens[0] == True):
+         go_to_closest_token(valid_tokens, angle_offset)   
+         return True
+     else:
+        camera_pan(45)
+        angle_offset = 45
+        valid_tokens = find_objects("base_tokens")
+        print(valid_tokens)
+        if (valid_tokens[0] == True):
+            go_to_closest_token(valid_tokens, angle_offset)   
+            return True
+        else:
+            camera_pan(-35)
+            angle_offset = -35
+            valid_tokens = find_objects("base_tokens")
+            print(valid_tokens)
+            if (valid_tokens[0] == True):
+                go_to_closest_token(valid_tokens, angle_offset)   
+                return True
+            else:
+                camera_pan(0)
+                return False
+
 
 def next_arena_token(start, step, direction):
     token = start + (step*direction)
@@ -1093,13 +1112,14 @@ startup_jingle()
 robot.wait_start()
 
 while True:
-    get_base_token()
-    robot.sleep(1)
+
+    turn_speed_angle(10,90)
+    robot.sleep(10)
+    turn_speed_angle(-10,90)
+    robot.sleep(10)
 
 
 
-#try 72.3deg/sec for turn_speed_angle
-#ask keith about turn_speed_angle if this doesnt work
 
 #add logic for get_base_token() to use the arm if it's on the ledge; use the sonar and height sensor to detect this.
 #could we program the robot to only do 90deg angles? would be slower but would make getting tokens from the ledge easier
