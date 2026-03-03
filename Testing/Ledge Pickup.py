@@ -973,4 +973,96 @@ print("")
 #*******************************************************************************
 # Set-up completed. Place your game code here
 #*******************************************************************************
+gripHeightThresh = 2 
+gripTimeOut = 5
+
+def confirm_grip() -> bool:
+    # not sure how to interface with pressure sensor
+
+
+
+def hasArmFinished() -> bool:
+    """
+    Returns true when the arm has reached its extension or retraction limit.
+    """
+    current = robot.motor_boards["SR0VJ1K"].motors[1].current
+    # the current through the actuator should
+    # drop to 0 when it reaches its limits
+
+    if current <= 0.1:
+        return True
+
+    return False
+
+
+def pickup_from_ledge() -> bool:
+    """
+    Full pickup sequence for box sitting on a rasied ledge
+
+    Returns true if box was gripped and retracted without issue.
+    """
+    print("WE ARE PICKING UP A BOX FROM A LEDGE NOW")
+    
+    # make sure vacuum is off 
+    VacPump(0)
+    VacValve("GRIP")
+
+    Arm_Extend(1)
+
+    # wait for robot to finish extension
+    while not hasArmFinished():
+        robot.sleep(0.1)
+
+
+    # Turn on vacuum and position arm to grab box
+    VacPump(1)
+    Arm_tilt_down()
+
+
+    # wait for successful box grab
+    t_start = time.time()
+    while time.time() - t_start > gripTimeOut:
+        if grip_ok = confirm_grip():
+            break
+
+    # reset if this fails
+    if not grip_ok:
+        print("ABORT ABORT ABORT")
+        VacPump(0)
+        Arm_Retract()
+        Arm_tilt_level()
+        return False
+
+    # retraction sequence
+    Arm_tilt_up()
+    Arm_Retract(1)
+
+    while not hasArmFinished():
+        robot.sleep(0.1)
+
+    print("We did it! A box was picked up")
+    
+    return True
+
+
+
+
+def release_box() -> None:
+    """
+    Releases the currently held box inside the robot... hopefully.
+
+    Must be run after retraction!
+    """
+
+    VacPump(0)  
+    VacValve("VENT")
+    robot.sleep(0.3)
+    VacValve("GRIP")
+
+    print("Box released")
+
+
+pickup_from_ledge()
+
+
 
