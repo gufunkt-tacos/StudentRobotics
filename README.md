@@ -1,10 +1,8 @@
 # Student Robotics
 This is a basic repository where we can upload our code for the Student Robotics competition.
 
-this is such cool such epic hehe
-
-i wonder if anyone will notice this >:)
-
+Here is some initial planning I was thinking about:
+https://trello.com/invite/b/69a6bd08c0acb8ab995c7821/ATTI7e31f11702587e4f8ec866730bc5f552F9D432C8/student-robotics-competition
 
 <br>
 <img src="/misc/logo.svg" alt="Student Robotics Logo" />
