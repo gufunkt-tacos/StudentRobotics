@@ -30,7 +30,7 @@ import math
 import numpy as np
 from math import cos, sin, pi, sqrt, atan2
 import serial.tools.list_ports
-from statistics import mean
+from statistics import mean, median
 
 global time_started_robot
 time_started_robot = time.time()  # get time when ON/OFF switch pressed
@@ -608,38 +608,72 @@ def Arm_tilt_level():  # Servo port [1] MS24, 270 degree servo, 20kg
 # returns actual distance recorded. Subtract front_sonar_offset to get distance to front of robot
 
 
-def left_front_sonar():  # base address of E0 (write), E1 (read)
-    # trigger ranging
-    ser.write(b"\x55\xe0\x00\x01\x51")
-    n = ser.read(1)  # get acknowledge
-    time.sleep(0.1)
-    # set I2C device to read and read two bytes from register 2/3 (target 1)
-    ser.write(b"\x55\xe1\x02\x02")  # 2 bytes, register auto-increments
-    n = ser.read(2)
-    decoded_n = n.decode
-    # print ("n undecoded = ",n)
-    targ1_hi = n[0]
-    targ1_lo = n[1]
-    left_front_sonar_range = targ1_lo + (targ1_hi << 8)
-    print("left front sonar range  = ", left_front_sonar_range)
-    return left_front_sonar_range
+def left_front_sonar(samples=5):
+    readings = []
+
+    for _ in range(samples):
+
+        # trigger in cm
+        ser.write(b"\x55\xe0\x00\x01\x51")
+        ser.read(1)  # acknowledge
+
+        # wait until measurement complete
+        while True:
+            ser.write(b"\x55\xe1\x00\x01")  # read register 0
+            status = ser.read(1)
+            if status != b'\xff':          # 0xFF means busy
+                break
+            time.sleep(0.01)
+
+        # Read range registers 2 & 3
+        ser.write(b"\x55\xe1\x02\x02")
+        n = ser.read(2)
+
+        targ1_hi = n[0]
+        targ1_lo = n[1]
+        distance = targ1_lo + (targ1_hi << 8)
+
+        readings.append(distance)
+
+        time.sleep(0.065)  # minimum safe delay between pings
+
+    print("left: " + str(mean(readings)))
+    # maybe use the median? might have better noise rejection
+    return mean(readings)
 
 
-def right_front_sonar():  # base address of E2 (write), E3 (read)
-    # trigger ranging
-    ser.write(b"\x55\xe2\x00\x01\x51")
-    n = ser.read(1)  # get acknowledge
-    time.sleep(0.1)
-    # set I2C device to read and read two bytes from register 2/3 (target 1)
-    ser.write(b"\x55\xe3\x02\x02")  # 2 bytes, register auto-increments
-    n = ser.read(2)
-    decoded_n = n.decode
-    # print ("n undecoded = ",n)
-    targ1_hi = n[0]
-    targ1_lo = n[1]
-    right_front_sonar_range = targ1_lo + (targ1_hi << 8)
-    print("right front sonar range  = ", right_front_sonar_range)
-    return right_front_sonar_range
+def right_front_sonar(samples=5):
+    readings = []
+
+    for _ in range(samples):
+
+        # trigger in cm
+        ser.write(b"\x55\xe2\x00\x01\x51")
+        ser.read(1)  # acknowledge
+
+        # wait until measurement complete
+        while True:
+            ser.write(b"\x55\xe3\x00\x01")  # read register 0
+            status = ser.read(1)
+            if status != b'\xff':          # 0xFF means busy
+                break
+            time.sleep(0.01)
+
+        # Read range registers 2 & 3
+        ser.write(b"\x55\xe3\x02\x02")
+        n = ser.read(2)
+
+        targ1_hi = n[0]
+        targ1_lo = n[1]
+        distance = targ1_lo + (targ1_hi << 8)
+
+        readings.append(distance)
+
+        time.sleep(0.065)  # minimum safe delay between pings
+
+    print("right:" + str(mean(readings)))
+    # maybe use the median? might have better noise rejection
+    return mean(readings)
 
 
 def rear_sonar():  # base address of F0 (write), F1 (read)
@@ -1316,34 +1350,44 @@ startup_jingle()
 robot.wait_start()
 
 
-targetDistToLedge = 10
-distanceBetweenFrontSonar = 50
-tolerance = 1
+targetDistToLedge = 20
+distanceBetweenFrontSonar = 35
+tolerance = 5
 angle = 0
 
 
-def getCloseToLedge() -> None:
-    leftDistance = left_front_sonar()
-    rightDistance = right_front_sonar()
 
-    if leftDistance > rightDistance:
-        angle = math.asin((leftDistance - rightDistance) / distanceBetweenFrontSonar)
-        angle = math.degrees(angle)
-        turn_speed_angle(30, angle)
+def getCloseToLedge() -> bool:
+    while True:
+        global angle
+        leftDistance = left_front_sonar(20)
+        time.sleep(1)
+        rightDistance = right_front_sonar(20)
 
-    if leftDistance >= rightDistance:
-        angle = math.asin((rightDistance - leftDistance) / distanceBetweenFrontSonar)
-        angle = math.degrees(angle)
-        turn_speed_angle(30, -angle)
+        if abs(leftDistance - rightDistance) > distanceBetweenFrontSonar:
+            return False
 
-    print(angle)
+        if leftDistance > rightDistance:
+            angle = math.asin((leftDistance - rightDistance) / distanceBetweenFrontSonar)
+            angle = math.degrees(angle)
+            turn_speed_angle(10, angle)
 
-    distance = mean([leftDistance, rightDistance]) - targetDistToLedge
-    drive_speed_distance(sign(distance) * 30, abs(distance))
+        if leftDistance <= rightDistance:
+            angle = math.asin((rightDistance - leftDistance) / distanceBetweenFrontSonar)
+            angle = math.degrees(angle)
+            turn_speed_angle(-10, angle)
 
-    print(distance)
+        print(angle)
+
+        distance = mean([leftDistance, rightDistance]) - targetDistToLedge
+        drive_speed_distance(sign(distance) * 20, abs(distance))
+
+        print(distance)
+
+        if abs(distance) < tolerance:
+            return True
 
 
 while True:
     getCloseToLedge()
-    robot.sleep(2)
+
