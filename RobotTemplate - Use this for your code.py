@@ -47,8 +47,8 @@ camera_vertical_height = 48
 #""""""""""""""""""""""""""""" variables""""""""""""""""""""""""""""""""""
 
 #These variables need to be defined as global within the functions that use them
-wheelspace = 37.9 # 37.9 new robot,31.5 tracks,34.60 for old robot,36.75 for 2020 test base
-wheel_diameter = 10.8 #10.8 for new robot, 10 without tyres,5.10 tracks,10.50 for 10cm wheel with tyre
+wheelspace = 379 # 37.9 new robot,31.5 tracks,34.60 for old robot,36.75 for 2020 test base
+wheel_diameter = 108 #10.8 for new robot, 10 without tyres,5.10 tracks,10.50 for 10cm wheel with tyre
 max_encoder = 4294967295 # required when encoder value <0
 camera_servo_offset_value = 4 # +ve offset anti-clock
 #...............................................................................
@@ -86,7 +86,13 @@ marker_coords = \
 # The name of the device (e.g USB-ISS for the USB to I2C interface adaptor) is passed to the routine
 # If the device is found it prints out the tty.device_node, Vendor ID (VID) and Product ID (PID)
 
-def find_ports(portname):
+def find_ports(portname: str) -> tuple[str, str]:
+    """
+    This routine examines the devices connected to the USB ports of the Pi4.
+    The name of the device (e.g USB-ISS for the USB to I2C interface adaptor) is passed to the routine.
+    If the device is found it prints out the tty.device_node, Vendor ID (VID) and Product ID (PID).
+    """
+
     print ("in find_ports, looking for ",portname)
     ports = serial.tools.list_ports.comports()
 
@@ -107,44 +113,51 @@ def find_ports(portname):
    
 #                       DRIVE MOTOR RELATED FUNCTIONS
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+def dis_2sec_timeout() -> None:
+    """
+    This function disables the MD25 motor controller 2 second timeout
+    """
 
-#_______________________________________________________________________________
-#       dis_2sec_timeout()
-# This function disables the MD25 motor controller 2 second timeout
-# I2C interface uses 1 byte addressed device mode 0x55
-# x55 selects I2C, Blue MD25 base address xB0(write)xB1(read) , command reg x10, 1byte, disable x32
-# x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
+    # I2C interface uses 1 byte addressed device mode 0x55
+    # x55 selects I2C, Blue MD25 base address xB0(write)xB1(read) , command reg x10, 1byte, disable x32
+    # x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
 
-def dis_2sec_timeout():
-    resp =0
+
+    resp = 0
     ser.write( b"\x55\xB2\x10\x01\x32" )  # b required to change unicode to bytes
     n = ser.read(1) #  get acknowledge, doesn't really matter about the format
     resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
     #print("response = ",resp)
-    if resp != 0 :
+    if resp != 0:
         print ("Motor timeout disabled")
     return
-#_______________________________________________________________________________
 
-#        enables_2sec_timeout()
-# This function enables the MD25 motor controller 2 second timeout
-# x55 selects I2C, Blue MD25 base address xB0, command reg x10, 1byte, enable x33
-# x55 selects I2C, Black MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
 
-def enables_2sec_timeout():
+def enables_2sec_timeout() -> None:
+    """
+    This function enables the MD25 motor controller 2 second timeout.
+    """
+
+    # x55 selects I2C, Blue MD25 base address xB0, command reg x10, 1byte, enable x33.
+    # x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32.
+
+
     ser.write( b"\x55\xB2\x10\x01\x33" )  # b required to change unicode to bytes
     n = ser.read(1) # get acknowledge
     resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
     if resp != 0 :
         print ("Motor timeout enabled")
     return
-#_______________________________________________________________________________
-#        reset_both_encoders()
-# This function resets both wheel encoder values to zero
-# x55 selects I2C, Blue MD25base address xB0, command reg x10, 1byte, reset encoders x20
-# x55 selects I2C, Black MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
 
-def reset_both_encoders():
+
+def reset_both_encoders() -> None:
+    """
+    This function resets both wheel encoder values to zero.
+    """
+
+    # x55 selects I2C, Blue MD25base address xB0, command reg x10, 1byte, reset encoders x20
+    # x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , command reg x10, 1byte, disable x32
+
     resp = 0
     #print ("in reset_both encoders ")
     ser.write(b"\x55\xB2\x10\x01\x20")  # b required to change unicode to bytes
@@ -157,18 +170,20 @@ def reset_both_encoders():
         print ("wheel encoders reset")
     time.sleep(.1)
     return
-#_______________________________________________________________________________
 
-#        encoder_1() encoder(2)
-# This function reads the 4 byte value from encoder 1 and converts to an integer
-# This value is saved as a variable "encoder1"
-# x55 selects I2C, Black MD25 base address xB2(write)xB3(read) , encoder data x02-x05, 1byte
-# x55 selects I2C, Blue  MD25 base address xB0 (B1 to read), encoder data x02-x05, 1byte
+
+
+# x55 selects I2C, MD25 base address xB0 (B1 to read), encoder data x02-x05, 1byte
+# x55 selects I2C, Orange MD25 base address xB2(write)xB3(read) , encoder data x02-x05, 1byte
 # x02 - 05  are the registers for the four encoder bytes
 # Read hibyte first to capture count for lower bytes
 # x01 is number of bytes (1) to be read from each register
 
-def encoder_1():
+def encoder_1() -> int:
+    """
+    This function reads the 4 byte value from encoder 1 and converts to an integer.
+    """
+
     #print "reading encoder 1"
     #MD25 is a single byte register device. Handles auto-increment of register address
     #select I2C device (x55), register to start read from (x02) and number of bytes (x04)
@@ -181,11 +196,12 @@ def encoder_1():
     encoder1 = Enc1byte0 + (Enc1byte1 << 8) +(Enc1byte2 << 16) + (Enc1byte3 << 24)
     #print ("encoder1 =", encoder1)
     return encoder1
-#_______________________________________________________________________________
-# This function reads the 4 byte value from encoder 2 and converts to an integer
-# This value is saved as a variable "encoder2"
 
-def encoder_2():
+def encoder_2() -> int:
+    """
+    This function reads the 4 byte value from encoder 1 and converts to an integer.
+    """
+
     #print "reading encoder 2"
     #MD25 is a single byte register device. Handles auto-increment of address
     #select I2C device (x55), register to start read from (x06) and number of bytes (x04)
@@ -198,36 +214,42 @@ def encoder_2():
     encoder2 = Enc2byte0 + (Enc2byte1 << 8) +(Enc2byte2 << 16) + (Enc2byte3 << 24)
     #print ("encoder2 =", encoder2)
     return encoder2
-#_______________________________________________________________________________
 
-#   set_acel_rate(acelrate)
-# This function sets the motor acceleration rate, range 1 to 10 fastest
-# Do not set to higher than 5(default)
-# x55 selectsI2C, Black MD25 base address xB2, command accel rate reg x10, 1byte, accelrate
-# x55 selectsI2C, Blue MD25 base address xB0, command accel rate reg x10, 1byte, accelrate
-# x03 sets rate to 3 full revers to full forward in 2.1 seconds
-def set_acel_rate(acelrate):
 
-    ser.write( b"\x55\xB2\x10\x01\x05" )  # b required to change unicode to bytes
+def set_acel_rate(acelrate) -> None:
+    """
+    This function sets the motor acceleration rate, range 1 to 10 fastest
+    Do not set to higher than 5 (default)
+    """
+
+    # x55 selectsI2C, Blue MD25 base address xB0, command accel rate reg x10, 1byte, accelrate
+    # x55 selectsI2C, Orange MD25 base address xB2, command accel rate reg x10, 1byte, accelrate
+    # x03 sets rate to 3 full revers to full forward in 2.1 seconds
+
+    ser.write(bytes([0x55, 0xB2, 0x10, 0x01, acelrate]))
     n = ser.read(1) # get acknowledge
     resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
-    time.sleep(.1)
+    time.sleep(0.1)
     if resp != 0 :
-        print ("Accel rate set at ",acelrate)
+        print ("Accel rate set at ", acelrate)
     return
-#_______________________________________________________________________________
 
-#   drive_both(speed1, speed2)
-# Independant control of both motors. Encoders reset at start of routine
-# Send a command to write to speed1 and speed 2
-# Send speed 1,2 values in the range -128 to +127
-# x55 selects I2C, Black MD25 base address xB2, mode reg x0F, 1bytes, x00 = mode 0
-# x55 selects I2C, Blue MD25 base address xB0, mode reg x0F, 1bytes, x00 = mode 0
-# last two values are speed values e.g x70, x90. In default mode0:
-# 0(0H) = full reverse, 128(80H) stop, 255(FFH) full forward
-# but this function converts from -128 reverse 0, stop +127 forward
 
-def drive_both(speed1, speed2):
+
+def drive_both(speed1: int, speed2: int) -> None:
+    """
+    Independant control of both motors. Encoders reset at start of routine.
+
+    Speed 1,2 values in the range -128 to +127
+    """
+    # Send a command to write to speed1 and speed 2
+    # x55 selects I2C, Blue MD25 base address xB0, mode reg x0F, 1bytes, x00 = mode 0
+    # x55 selects I2C, Orange MD25 base address xB2, mode reg x0F, 1bytes, x00 = mode 0
+    # last two values are speed values e.g x70, x90. In default mode0:
+    # 0(0H) = full reverse, 128(80H) stop, 255(FFH) full forward
+    # but this function converts from -128 reverse 0, stop +127 forward
+
+
     reset_both_encoders()
     # Convert passed variables to +ve integers in the range 0 to 255
     # +ve speed = forward, +ve turn = clockwise
@@ -235,32 +257,40 @@ def drive_both(speed1, speed2):
     speed2 = speed2 + 128
     #Set up mode register (15, x0F) for mode 0,Independant control of motors, no sync
     ser.write( b"\x55\xB2\x0F\x01\x00" )  # b required to change unicode to bytes
-    n = ser.read(1) # get acknowledge
+    ser.read(1) # get acknowledge
     #Write to registers speed 1 (speed1) and speed 2 (speed2)
-    ser.write(bytes([0x55, 0xB0, 0x00, 0x02, speed1, speed2]))
-    n = ser.read(1) # get acknowledge
+    ser.write(bytes([0x55, 0xB2, 0x00, 0x02, speed1, speed2]))
+    ser.read(1) # get acknowledge
     return
-#_______________________________________________________________________________
 
-#       motor_stop()
-#   Stop both motors
-def motor_stop():
+
+
+def motor_stop() -> None:
+    """
+    Stop both motors.
+    """
     ser.write( b"\x55\xB2\x00\x02\x80\x80" )  # b required to change unicode to bytes
     n = ser.read(1) # get acknowledge
     time.sleep(.1)
     # reset encoders elsewhere if required
     return
-#_______________________________________________________________________________
 
-#       drive_sync(speed, turn)
-# Synchronised speed on both motors. Resets both encoders at beginning of routine
-# First set up mode register (15, x0F) for mode 2
-# Send a command to write to speed1 for speed and speed 2 for turn (0 if no turn required)
-# x55 selects I2C, MD25 base address xB2, mode reg x0F, 1byte, x02 = mode 2
-# Then write to speed 1 and 2 as per drive_both
 
-def drive_sync(speed, turn):
-    #print("In drive_sync()")
+
+def drive_sync(speed: int, turn: int) -> None:
+    """
+    Synchronised speed on both motors.
+
+    Resets both encoders at beginning of routine.
+    """
+
+    # First set up mode register (15, x0F) for mode 2
+    # Send a command to write to speed1 for speed and speed 2 for turn (0 if no turn required)
+    # x55 selects I2C, MD25 base address xB2, mode reg x0F, 1byte, x02 = mode 2
+    # Then write to speed 1 and 2 as per drive_both
+
+
+
     # This sets up MD25 register for speed turn. Turn will continue until motor stop commanded
     # Under MD25 control of speed only. Does not use encoders
     # If turn set to 0 then speed selects forward & reverse speeds
@@ -273,78 +303,76 @@ def drive_sync(speed, turn):
     reset_both_encoders() # may not be necessary
     #print ("in drive_sync(speed,turn):speed ",speed, " turn ", turn)
     #reset encoders elsewhere if required. Encoders not used in this mode
-    if speed >= 127 :
+    if speed not in range(-128, 128):
         speed = 127
+    if turn not in range(-128, 128):
+        turn = 127
     speed = speed + 128
     turn = turn + 128
     #Set up mode register (15, x0F) for mode 2
     #Synchronises speed of both motors
     ser.write( b"\x55\xB2\x0F\x01\x02" )  # b required to change unicode to bytes
-    n = ser.read(1) # get acknowledge
+    ser.read(1) # get acknowledge
     time.sleep(.1)
     #Write to registers speed 1 (speed) and speed 2 (turn)
     #ser.write( "\x55\xB2\x00\x02"  + chr(speed) + chr(turn))
     ser.write(bytes([0x55, 0xB2, 0x00, 0x02, speed, turn]))
-    n = ser.read(1) # get acknowledge
+    ser.read(1) # get acknowledge
     return
 
-#_______________________________________________________________________________
 
-#       drive_speed_distance(speed, distance)
-# Resets both encoders at start of routine
-# Drive in a straight line at a defined speed (-128 to +127)
-# Set speed in the range 0 to 127 forward, 0 to -128 reverse
-# Drive for a defined distance in centimetres
-# Uses synchronised speed mode
-# Drive times out after a calculated time is exceeded (speed, distance based)
-# Checks lift limits and stops lift if necessary
 
-def drive_speed_distance(speed, distance):
+
+def drive_speed_distance(speed: int, distance: float) -> bool:
+    """
+    Drive in a straight line at a defined speed (-128 to +127)
+
+    Should be used in millimetres.
+
+    Resets both encoders at start of routine.
+    Drive in a straight line at a defined speed (-128 to +127).
+    Uses synchronised speed mode.
+    Drive times out after a calculated time is exceeded.
+    """
+
     global max_encoder
     global wheel_diameter
     global drive_timeout_time
     # nominal speed of robot at speed 32 = 25cm/s (at speed 32)
     # adjust for accel/decel times etc and add a 1 second margin
     if speed != 0 :
-        drive_timeout_time = (((distance * 32) / 22) /abs(speed)) +2
+        drive_timeout_time = (((distance * 32) / 22) /abs(speed)) + 2
     else :
         drive_timeout_time = 15.0 #default drive timeout time
     if distance <= 0: # Only +ve values of distance allowed
-        distance = 0
-        move = False
-        return
-    drive_time_out = False # Flag set as True if time-out occurs
-    print ("in drive_speed_distance. Will reset both encoders")
+        return False
+    
+    print ("in drive_speed_distance. Will reset both encoders.")
     # convert distance to an encoder value
-    required_distance_encoder_value = int((distance / (wheel_diameter * 3.142)) * 360)
+    required_distance_encoder_value = int((distance / (wheel_diameter * pi)) * 360)
     time.sleep(.1)
     # start motors
     # drives with 0 turn at speed set by "speed"
     time_started_drive = time.time() # gets time when drive was started
-    drive_sync(speed, 0) #start motors
+    drive_sync(speed, 0) # start motors
     # THIS DELAY IS ESSENTIAL TO CORRECT OPERATION, OR IS IT ??????
     time.sleep(.1)
-    #If speed > 0 (OK but if <0 then need to correct encoder for -ve values)
-    move = False
+    #If speed > 0 (OK but if < 0 then need to correct encoder for -ve values)
     if speed > 0 :
         while (encoder_1() < required_distance_encoder_value \
         or encoder_2() < required_distance_encoder_value)\
         and ((time.time() - time_started_drive) < drive_timeout_time) : # check drive timeout 15secs
             #print("in drive_speed_distance, encoder1 ",encoder_1())
-            move = True
+            pass
     elif speed < 0 :
         while ((encoder_1()) > (max_encoder - required_distance_encoder_value) \
         or (encoder_2()) > (max_encoder - required_distance_encoder_value))\
         and ((time.time() - time_started_drive) < drive_timeout_time) : # check drive timeout 15secs:
-            move = True
+           pass
     if (time.time() - time_started_drive) > drive_timeout_time :
-        move = False
-        drive_time_out = True
         print ("Calculated drive time-out = ", drive_timeout_time)
         print ("Drive timed out in ",(time.time() - time_started_drive)," secs")
-
-    else :
-        move = False
+        return False
     # demanded distance achieved, stop motors
     motor_stop()
     #print ("Calculated drive time-out = ", drive_timeout_time)
@@ -352,21 +380,44 @@ def drive_speed_distance(speed, distance):
     #print ("Finished drive_speed_distance")
     #print ("encoder 1  value = ",encoder_1())
     #print ("encoder 2  value = ",encoder_2())
-    return
+    return True
 
-#_______________________________________________________________________________
-def turn_speed_angle(speed, angle):
+def drive_actual_speed_distance(speed: float, distance: float) -> bool:
+    """
+    Speed is measured in mm/s
+
+    Distance is measured in mm
+
+    Equivalent in practice to drive_steprate_distance
+    """
+
+    maxSpeed = 2000
+    if abs(speed) > maxSpeed:
+        speed = (speed/abs(speed))*maxSpeed
+    steprate = int((255 / maxSpeed) * speed) - 128
+    return drive_speed_distance(steprate, distance)
+
+
+    
+
+
+def turn_speed_angle(speed: int, angle: float) -> bool:
+    """
+    Speed is defined between -128 (CCW) to +127 (CW)
+
+    Angle is in degrees
+    """
+
     global turn_timeout_time
     global wheelspace
     global wheel_diameter
     # nominal rotation speed of robot at speed 32 = 37.5 degrees/s (at speed 32)
     # adjust for accel/decel times etc and add a 2 second margin
     if speed != 0 :
-        turn_timeout_time = (((angle * 32) / 60) /abs(speed)) +3
+        turn_timeout_time = (((angle * 32) / 60) /abs(speed)) + 3
     else :
-        turn_timeout_time = 15.0 #default drive timeout time
+        return False
     
-    turn_time_out = False
     # convert angle to an encoder value
     # Rotation disc circumference  = wheelspace * pi
     # wheel circumference = wheel_diameter * pi
@@ -375,8 +426,8 @@ def turn_speed_angle(speed, angle):
     # optimised for speed 16
     print ("I am in turn_speed_angle")
     if angle == 0 :
-        return
-    angle_encoder = float(wheelspace / wheel_diameter)
+        return False
+    angle_encoder = wheelspace / wheel_diameter
     # reset encoders to 0
     reset_both_encoders()
     time.sleep(.1)
@@ -387,35 +438,27 @@ def turn_speed_angle(speed, angle):
     time.sleep(.3)
     # select encoder which has increasing value
     if speed < 0 :
-    # correction factor for clockwise turn Default set to 1
-        angle = angle / 1.0
-        while encoder_2() < int(angle_encoder * angle) \
+        while encoder_2() < angle_encoder * angle \
         and ((time.time() - time_started_turn) < turn_timeout_time) : # check drive timeout 10secs:
-            move = True
+            pass
         motor_stop()
         time.sleep(.1)
     elif speed > 0 :
-    # correction factor for anti-clockwise turn. 1 = no correction
-        angle = angle / 1.0
-        while encoder_1() < int(angle_encoder * angle)\
+        while encoder_1() < angle_encoder * angle\
         and ((time.time() - time_started_turn) < turn_timeout_time) : # check drive timeout 10secs:
-            move = True
+            pass
         motor_stop()
         time.sleep(.1)
 
     if (time.time() - time_started_turn) > turn_timeout_time : #set turn_time_out_flag
         motor_stop()
-        move = False
-        turn_time_out = True
         print ("Turn timed out in ",(time.time() - time_started_turn)," secs")
-        return
-    else :
-        move = False
-        motor_stop()
+        return False
+    
+    motor_stop()
     #print ("Calculated drive time-out = ", turn_timeout_time)
     #print ("Time for drive = ", (time.time() - time_started_turn), " secs")
-    return
-
+    return True
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -621,6 +664,10 @@ def LED_C_red():
 def LED_C_off():
     robot.kch.leds[LED_C].colour = Colour.OFF
 
+def toggle_LED(led: int, colour: Colour):
+    if robot.kch.leds[led].colour != colour:
+        robot.kch.leds[led].colour = colour
+
 
 #def distance_ultrasound():
 #    return arduino.ultrasound_measure(2,3) # ultrasound pins might need to be changed
@@ -717,9 +764,37 @@ def Doors_close_RL():
 # This function locates all objects/markers currently seen by camera
 # pass "all", "acid_tokens", "base_tokens", "arena_marker"#_______________________________________________________________________________
 # 
-def find_objects(object):
-    # additioanl correction to video camera distance calculation
-    dist_correction = 0
+class ObjectType(Flag):
+    TOKEN = auto()
+    ACID = auto()
+    BASE = auto()
+
+    ARENA_MARKER = auto()
+
+    IGNORE = auto()
+
+def get_type_from_id(id: int) -> ObjectType:
+    if id >= 0 and id <=19:
+        return ObjectType.ARENA_MARKER
+    elif id >= 100 and id <=139:
+        return ObjectType.ACID | ObjectType.TOKEN
+    elif id >= 140 and id <=179:
+        return ObjectType.BASE | ObjectType.TOKEN
+    else:
+        return ObjectType.IGNORE
+
+class Object:
+    def __init__(self, id: int, position: float, h_angle: int, v_angle: int):
+        self.id: int = id
+        self.position: float = position
+        self.h_angle: int = h_angle
+        self.v_angle: int = v_angle
+        self.type: ObjectType = get_type_from_id(id)
+
+def find_objects(object_type: ObjectType) -> list[Object] | None:
+    '''
+    Finds all objects of certain type in the camera's vision
+    '''
     angle_correction = 0
     camera_vertical_height = 48
     camera_horizontal_offset = 36
@@ -727,98 +802,31 @@ def find_objects(object):
     robot.kch.leds[LED_A].colour = Colour.OFF
     robot.kch.leds[LED_B].colour = Colour.OFF
     robot.kch.leds[LED_C].colour = Colour.OFF
-        
-    print ("find_objects(object): ",object)
     
-    acid_tokens_found = False
-    base_tokens_found = False
-    arena_marker_found = False
-    acid_tokens_ids = []
-    acid_tokens_dist =[]
-    acid_tokens_angle = []
-    base_tokens_ids = []
-    base_tokens_dist =[]
-    base_tokens_angle = []
-    arena_marker_ids =[]
-    arena_marker_dist =[]
-    arena_marker_angle =[]
-              
-    #camera_postion = cam_angle
-            #markers = R.camera.see(save="ObjectSearch-snapshot.jpg")
+    objects: list[Object] = []
+
     markers = robot.camera.see()
     time.sleep(rseewaittime)
-    #print("markers ",markers)
-    if len(markers) != 0:
-        for m in markers:
-            robot_distance = round(m.position.distance/10,2)
-            #print("robot distance raw  ", robot_distance)
-            print("")
-            #robot_distance_corrected = round(robot_distance - camera_horizontal_offset,2)
-            if ((robot_distance ** 2 ) - ((camera_vertical_height -0) ** 2)) <= 0:
-                robot_distance = 1000 
-            robot_distance_corrected = round(math.sqrt((robot_distance ** 2) - ((camera_vertical_height - 0) ** 2)) - camera_horizontal_offset,0)
-            print("vision distance to camera :- ",robot_distance, " from front of robot :- ", robot_distance_corrected )
-            print("")
-            #robot_distance_corrected = robot_distance_corrected + dist_correction
-            uncorrected_robot_angle = round(math.degrees(m.position.horizontal_angle))
-            print (" uncorrected angle ",uncorrected_robot_angle)
-            robot_angle = uncorrected_robot_angle + angle_correction
-            print (" corrected angle ",robot_angle)
-            
-            if m.id >= 0 and m.id <=19: # arena marker
-                robot.kch.leds[LED_C].colour = Colour.YELLOW
-                arena_marker_found = True
-                arena_marker_ids.append(m.id)
-                arena_marker_dist.append(robot_distance_corrected)
-                arena_marker_angle.append(robot_angle)
-                print ("arena marker ids ",arena_marker_ids)
 
-            
-            if m.id >= 100 and m.id <=139: # Acid (Red) token
-                robot.kch.leds[LED_A].colour = Colour.RED
-                acid_tokens_ids.append(m.id)
-                acid_tokens_dist.append(robot_distance_corrected)
-                acid_tokens_angle.append(robot_angle)
-                print ("acid tokens ids ",acid_tokens_ids)
-                print ("")
-                acid_tokens_found = True
-                print("robot distance vision ",robot_distance)
-                print("robot distance corrected ",robot_distance_corrected)
-                #sonar_range = front_sonar()
-                #print("front sonar ",sonar_range)
-    
-            if m.id >= 140 and m.id <=179: # Acid (Red) token
-                robot.kch.leds[LED_B].colour = Colour.BLUE
-                base_tokens_ids.append(m.id)
-                base_tokens_dist.append(robot_distance_corrected)
-                base_tokens_angle.append(robot_angle)
-                print ("base tokens ids ",base_tokens_ids)
-                print ("")
-                base_tokens_found = True
-                print("robot distance vision ",robot_distance)
-                print("robot distance corrected ",robot_distance_corrected)
-                #sonar_range = front_sonar()
-                #print("front sonar ",sonar_range)
+    for marker in markers:
+        robot_distance = round(marker.position.distance/10,2)
+        if ((robot_distance ** 2 ) - ((camera_vertical_height -0) ** 2)) <= 0:
+            robot_distance = 1000 
+        robot_distance_corrected = round(math.sqrt((robot_distance ** 2) - ((camera_vertical_height - 0) ** 2)) - camera_horizontal_offset,0)
         
-    else:
-        print("no objects found") 
-        if object == "all":
-            return False,0,0,0,False,0,0,0,False,0,0,0
-        else:
-            return False,0,0,0    
+        h_uncorrected_robot_angle = round(math.degrees(marker.position.horizontal_angle))
+        h_robot_angle = h_uncorrected_robot_angle + angle_correction
 
-    print ("object selected = ",object)
-    #print ("outer pillar found", my_outer_pillar_found)
-    if object == "acid_tokens":
-        return  acid_tokens_found, acid_tokens_ids, acid_tokens_dist, acid_tokens_angle
-    if object == "base_tokens":
-        return  base_tokens_found, base_tokens_ids, base_tokens_dist, base_tokens_angle
-    if object =="arena_marker":
-        return  arena_marker_found, arena_marker_ids, arena_marker_dist, arena_marker_angle
-    if object == "all":
-        return acid_tokens_found, acid_tokens_ids, acid_tokens_dist, acid_tokens_angle,\
-               base_tokens_found, base_tokens_ids, base_tokens_dist, base_tokens_angle, \
-               arena_marker_found,arena_marker_ids, arena_marker_dist, arena_marker_angle
+        v_uncorrected_robot_angle = round(math.degrees(marker.position.horizontal_angle))
+        v_robot_angle = v_uncorrected_robot_angle + angle_correction
+
+        objects.append(Object(marker.id, robot_distance_corrected, h_robot_angle, v_robot_angle)) 
+
+    if len(objects) == 0:
+        return None
+    
+    return  [o for o in objects if object_type in o.type]
+ 
 
 #_______________________________________________________________________________
 
@@ -961,59 +969,6 @@ print("")
 # Set-up completed. Place your game code here
 #*******************************************************************************
 
-startup_jingle()
-robot.wait_start()
-
-camera_pan(45)
-time.sleep(1)
-camera_pan(-45)
-time.sleep(1)
-camera_pan(0)
-time.sleep(1)
-
-Doors_open()
-time.sleep(2)
-Doors_wedge()
-time.sleep(2)
-Doors_close()
-time.sleep(2)
-
-Arm_tilt_up()
-Arm_tilt_down()
-Arm_tilt_level()
-VacPump(1)
-
-
-
-while True:
-    VacPump(0)
-    Arm_Retract(1)
-    time.sleep(8)
-    Arm_Extend(1)
-    Arm_tilt_level()
-    i=0
-    while i <= 20:
-        height = sucker_height()
-        print ("height = ",height)
-        time.sleep(.5)
-        Arm_Extend(1)
-        time.sleep(.5)
-        Arm_Stop()
-        i = i + 1
-    VacPump(1)
-    time.sleep(1)
-    Arm_tilt_up()
-    Arm_Retract(1)
-    time.sleep(7)
-    VacPump(0)
-    VacValve("VENT")
-    Arm_Extend(1)
-    time.sleep(5)
-    Arm_tilt_down()
-    Arm_Retract(1)
-    time.sleep(5)
-    Arm_tilt_up()
-       
 
 
 
