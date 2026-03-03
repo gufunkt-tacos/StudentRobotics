@@ -953,7 +953,7 @@ print ("I am in",my_mode,"mode")
 print ("Selected starting corner = ",my_corner)
 print ("my_lab  ",my_lab)
 #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-#robot.wait_start() #        Waiting for start button to be pressed
+robot.wait_start() #        Waiting for start button to be pressed
 #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 #my_corner = 0
@@ -973,11 +973,12 @@ print("")
 #*******************************************************************************
 # Set-up completed. Place your game code here
 #*******************************************************************************
-gripHeightThresh = 2 
-gripTimeOut = 5
+gripHeightThresh = 2 #seconds
+gripTimeOut = 5 #seconds
 
 def confirm_grip() -> bool:
     # not sure how to interface with pressure sensor
+    return True
 
 
 
@@ -1022,14 +1023,14 @@ def pickup_from_ledge() -> bool:
     # wait for successful box grab
     t_start = time.time()
     while time.time() - t_start > gripTimeOut:
-        if grip_ok = confirm_grip():
+        if grip_ok := confirm_grip():               # walrus
             break
 
     # reset if this fails
     if not grip_ok:
         print("ABORT ABORT ABORT")
         VacPump(0)
-        Arm_Retract()
+        Arm_Retract(1)
         Arm_tilt_level()
         return False
 
@@ -1063,6 +1064,7 @@ def release_box() -> None:
 
 
 pickup_from_ledge()
+
 
 
 
