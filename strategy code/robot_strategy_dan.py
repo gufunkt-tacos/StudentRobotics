@@ -968,59 +968,93 @@ def sign(x):
     else:
         return -1
     
-def go_to_closest_token(valid_tokens, angle_offset):
+def find_closest_token(type, angle_offset):
+
+    valid_tokens = []
+    valid_tokens = find_objects(type)
+    found = valid_tokens[0]
+    if found == True:
+        print(valid_tokens)
+        closest_token_dist = int(valid_tokens[2][0])
+        token_angle = valid_tokens[3][0]
+        print(len(valid_tokens[2]))
+        for i in range(0,len(valid_tokens[2])):
+            if(valid_tokens[2][i] < closest_token_dist):
+                closest_token_dist = valid_tokens[2][i]
+                token_angle = valid_tokens[3][i]
+                print(i)
+                print(valid_tokens[2][i])
+                print(valid_tokens[3][i])
+        
+        print("angle seen = " + str(token_angle))
+
+        token_angle-=angle_offset
+
+        return [closest_token_dist, token_angle, found]
+    else:
+        return [0,0, False]
+
+    
+def go_to_closest_token(type, closest_token):
 
     scaling = 1
-    closest_token_dist = valid_tokens[2][0]
-    token_angle = valid_tokens[3][0]
-    print(len(valid_tokens[2]))
-    for i in range(0,len(valid_tokens[2])):
-        if(valid_tokens[2][i] < closest_token_dist):
-            closest_token_dist = valid_tokens[2][i]
-            token_angle = valid_tokens[3][i]
-            print(i)
-            print(valid_tokens[2][i])
-            print(valid_tokens[3][i])
+    camera_pan(0)
 
-    token_angle-=angle_offset
-    print(token_angle)
+    closest_token_dist = closest_token[0]
+    token_angle = closest_token[1]
+   
     print(closest_token_dist)
     turn_speed_angle(10*sign(token_angle), abs(token_angle)/scaling)
+
+    token_angle = find_closest_token(type, 0)[1]
+    
+    turn_speed_angle(5*sign(token_angle), (abs(token_angle)/scaling)/2)
+
     drive_speed_distance(40, closest_token_dist)
     Doors_open()
     drive_speed_distance(40, 60)
     Doors_close()
     Doors_wedge()
 
-def get_base_token():
-     camera_pan(0)
-     angle_offset = 0
-     Doors_wedge()
-     valid_tokens = find_objects("base_tokens")
-     print(valid_tokens)
+def get_floor_token(type):
 
-     if (valid_tokens[0] == True):
-         go_to_closest_token(valid_tokens, angle_offset)   
-         return True
-     else:
+    angle_offset = 0
+
+    closest_token = find_closest_token(type, angle_offset)
+    if(closest_token[2] == True):
+        go_to_closest_token(type, closest_token)
+        return True
+    else:
         camera_pan(45)
         angle_offset = 45
-        valid_tokens = find_objects("base_tokens")
-        print(valid_tokens)
-        if (valid_tokens[0] == True):
-            go_to_closest_token(valid_tokens, angle_offset)   
+        closest_token = find_closest_token(type, angle_offset)
+
+        if(closest_token[2] == True):
+            go_to_closest_token(type, closest_token)
             return True
         else:
-            camera_pan(-35)
-            angle_offset = -35
-            valid_tokens = find_objects("base_tokens")
-            print(valid_tokens)
-            if (valid_tokens[0] == True):
-                go_to_closest_token(valid_tokens, angle_offset)   
+            camera_pan(-45)
+            angle_offset = -45
+            closest_token = find_closest_token(type, angle_offset)
+
+            if(closest_token[2] == True):
+                go_to_closest_token(type, closest_token)
                 return True
             else:
                 camera_pan(0)
                 return False
+
+
+    
+
+def get_token(type, level):
+     camera_pan(0)
+     angle_offset = 0
+     Doors_wedge()
+     if (level == "floor"):
+         get_floor_token(type)
+     
+        
 
 
 def next_arena_token(start, step, direction):
@@ -1113,10 +1147,7 @@ robot.wait_start()
 
 while True:
 
-    turn_speed_angle(10,90)
-    robot.sleep(10)
-    turn_speed_angle(-10,90)
-    robot.sleep(10)
+    get_floor_token("base_tokens")
 
 
 
