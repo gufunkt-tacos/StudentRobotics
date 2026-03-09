@@ -1,7 +1,0 @@
-{
-    "python-envs.defaultEnvManager": "ms-python.python:system",
-    "python-envs.pythonProjects": [],
-    "python.analysis.diagnosticSeverityOverrides": {
-        "reportWildcardImportFromLibrary": "none"
-    }
-}
