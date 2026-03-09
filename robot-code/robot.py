@@ -1,12 +1,11 @@
 from creep.machine import CreepRobot
 from creep.logic.basic_logic import move_forward, pick_up_box
-
-print(f"__name__ in robot.py is {__name__}")
+from creep.logic.robot_subroutines import get_floor_token
 
 def main():
     creep = CreepRobot()
     creep.initialise()
-    pick_up_box(creep)
+    get_floor_token(creep, "base_tokens")
 
 if __name__ == "__main__":
     main()
