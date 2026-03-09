@@ -54,7 +54,17 @@ class Object:
         self.position: float = position
         self.h_angle: int = h_angle
         self.v_angle: int = v_angle
-        self.type: ObjectType = self.get_type_from_id(id)
+        self.type: ObjectType = get_type_from_id(id)
+
+def get_type_from_id(id: int) -> ObjectType:
+    if id >= 0 and id <=19:
+        return ObjectType.ARENA_MARKER
+    elif id >= 100 and id <=139:
+        return ObjectType.ACID | ObjectType.TOKEN
+    elif id >= 140 and id <=179:
+        return ObjectType.BASE | ObjectType.TOKEN
+    else:
+        return ObjectType.IGNORE
 
 
 class CreepRobot():
@@ -767,16 +777,6 @@ class CreepRobot():
     # pass "all", "acid_tokens", "base_tokens", "arena_marker"#_______________________________________________________________________________
     # 
 
-    def get_type_from_id(self, id: int) -> ObjectType:
-        if id >= 0 and id <=19:
-            return ObjectType.ARENA_MARKER
-        elif id >= 100 and id <=139:
-            return ObjectType.ACID | ObjectType.TOKEN
-        elif id >= 140 and id <=179:
-            return ObjectType.BASE | ObjectType.TOKEN
-        else:
-            return ObjectType.IGNORE
-
     def find_objects(self, object_type: ObjectType) -> list[Object] | None:
         '''
         Finds all objects of certain type in the camera's vision
@@ -949,26 +949,26 @@ class CreepRobot():
             my_mode = "DEV"
             self.my_corner = 0  # Change the corner number for test purposes
             if self.my_corner==0:
-                my_lab = [18,19,0]
+                self.my_lab = [18,19,0]
             else:
                 for i in range(0,3,1):
                     j=3+i+((self.my_corner-1)*5)
-                    my_lab.append(j)
+                    self.my_lab.append(j)
             
         else :
             my_mode = "COMP"
             print ("I am in",my_mode,"mode")
             self.my_corner = self.robot.zone
             if self.my_corner==0:
-                my_lab = [18,19,0]
+                self.my_lab = [18,19,0]
             else:
                 for i in range(0,3,1):
                     j=3+i+((self.my_corner-1)*5)
-                    my_lab.append(j)
-            print ("my_lab ",my_lab)
+                    self.my_lab.append(j)
+            print ("my_lab ",self.my_lab)
         print ("I am in",my_mode,"mode")    
         print ("Selected starting corner = ",self.my_corner)
-        print ("my_lab  ",my_lab)
+        print ("my_lab  ", self.my_lab)
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         #robot.wait_start() #        Waiting for start button to be pressed
         #&&&&&&&&&&&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'
