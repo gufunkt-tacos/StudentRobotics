@@ -140,7 +140,7 @@ def go_home(creep: CreepRobot):
     else:
         creep.drive_speed_distance(30,25)
     
-    go_home()
+    go_home(creep: CreepRobot)
 
 
 def navigate_obstacle(creep: CreepRobot):
