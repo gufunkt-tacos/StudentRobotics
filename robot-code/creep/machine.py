@@ -39,6 +39,18 @@ MARKER_COORDS = \
     ,[381,458],[305,458],[229,458],[153,458],[76,458] \
     ,[0,381],[0,305],[0,229],[0,153],[0,76]]
 
+# Wall: list of x,y coordinates of the markers along each wall
+# Each marker is spaced 76.25±20 mm apart and there are 5 on each wall
+# Converted to cm
+ARENA_MARKER_COORS = {
+    0: {0: (76.25, 457.5), 1: (152.5, 457.5), 2: (228.75, 457.5), 3: (305.0, 457.5), 4: (381.25, 457.5)},
+    1: {5: (457.5, 381.25), 6: (457.5, 305.0), 7: (457.5, 228.75), 8: (457.5, 152.5), 9: (457.5, 76.25)},
+    2: {10: (381.25, 0.0), 11: (305.0, 0.0), 12: (228.75, 0.0), 13: (152.5, 0.0), 14: (76.25, 0.0)},
+    3: {15: (0.0, 76.25), 16: (0.0, 152.5), 17: (0.0, 228.75), 18: (0.0, 305.0), 19: (0.0, 381.25)}
+}
+
+get_marker_coords = lambda marker_id: ARENA_MARKER_COORS[marker_id // 5][marker_id]
+
 class ObjectType(Flag):
     TOKEN = auto()
     ACID = auto()
