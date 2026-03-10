@@ -609,7 +609,7 @@ class CreepRobot():
             time.sleep(0.065)  # minimum safe delay between pings
 
         distance = statistics.mean(readings)
-        print("Right sonar: " + str(distance))
+        # print("Right sonar: " + str(distance))
         # maybe use the median? might have better noise rejection
         return distance
     
@@ -650,7 +650,7 @@ class CreepRobot():
             time.sleep(0.065)  # minimum safe delay between pings
 
         distance = statistics.mean(readings)
-        print("Right sonar: " + str(distance))
+        # print("Right sonar: " + str(distance))
         # maybe use the median? might have better noise rejection
         return distance
     

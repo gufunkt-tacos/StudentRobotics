@@ -6,8 +6,8 @@ import time
 def main():
     creep = CreepRobot()
     creep.initialise()
-
-    approach_ledge(creep)
+    while True:
+        approach_ledge(creep)
 
 if __name__ == "__main__":
     main()
