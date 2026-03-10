@@ -165,3 +165,35 @@ def navigate_obstacle(creep: CreepRobot):
             creep.drive_speed_distance(20,50)
             creep.turn_speed_angle(32*-sign(right_sonar-left_sonar),90)
 
+
+global speedfactor
+global maxspeed
+maxspeed = 30
+speedfactor = 0.5
+
+
+def approach_ledge(creep: CreepRobot, targetDistance = 10, tolerance = 5):
+    creep.Doors_close()
+    creep.Arm_Extend()
+    right_distance = creep.right_front_sonar() - targetDistance
+    left_distance = creep.left_front_sonar() - targetDistance
+    success = False
+
+    while not success:
+        success = True
+        if abs(right_distance) > tolerance:
+            success = False
+            right_speed = min(right_distance * speedfactor, sign(right_distance) * maxspeed)   
+            print(right_speed)
+        if abs(left_distance) > tolerance:
+            success = False
+            left_speed = min(left_distance * speedfactor, sign(left_distance) * maxspeed)
+            print(left_distance)
+
+        print()
+
+        creep.drive_both(left_speed, right_speed)
+
+    print("Success!")
+
+
