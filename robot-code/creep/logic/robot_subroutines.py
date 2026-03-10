@@ -1,4 +1,4 @@
-from ..machine import CreepRobot, Object, ObjectType
+from ..machine import *
 
 def sign(x):
     if(x>=0):
@@ -103,7 +103,7 @@ Dylan to Dan -
     Not sure what this code is supposed to do so I have tried to refactor  
     but it may be wrong
 """
-def go_home(creep: CreepRobot) -> None:
+def go_home(creep: CreepRobot):
     
     creep.Doors_wedge()
     closest_token_dist = 8192
@@ -135,20 +135,31 @@ def go_home(creep: CreepRobot) -> None:
                 if(arena_markers[i].id == next_arena_token(creep.my_lab[0],step,-1) or arena_markers[i].id == next_arena_token(creep.my_lab[2],step,1)):
                     marker_found = True
                     if(arena_markers[i].position < closest_token_dist):
+                        marker_id = arena_markers[i].id
                         closest_token_dist = arena_markers[i].position
                         closest_token_angle = arena_markers[i].h_angle
     
     if marker_found:
-        creep.turn_speed_angle(5, closest_token_angle)
-        creep.drive_speed_distance(30, closest_token_dist)
-        creep.turn_speed_angle(5,90*sign(closest_token_angle))
+        wall_facing = get_marker_wall(marker_id)
+
+        match wall_facing:
+            case 0:
+                creep.turn_speed_angle(-16, 90)
+            case 1:
+                creep.turn_speed_angle(16, 90)
+            case 2:
+                creep.turn_speed_angle(16, 90)
+            case 3:
+                creep.turn_speed_angle(16, 90)
+                    
+
     else:
-        creep.drive_speed_distance(30,25)
+        temp=6769420
     
     go_home(creep)
 
 
-def navigate_obstacle(creep: CreepRobot) -> None:
+def navigate_obstacle(creep: CreepRobot):
     creep.Doors_wedge()
     right_sonar = creep.right_front_sonar()
     left_sonar = creep.left_front_sonar()
