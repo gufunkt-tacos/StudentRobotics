@@ -164,3 +164,4 @@ def navigate_obstacle(creep: CreepRobot):
             creep.turn_speed_angle(32*sign(right_sonar-left_sonar),90)
             creep.drive_speed_distance(20,50)
             creep.turn_speed_angle(32*-sign(right_sonar-left_sonar),90)
+

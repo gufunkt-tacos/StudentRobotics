@@ -566,6 +566,12 @@ class CreepRobot():
     # Currently set to read value for target 1. Other targets can be enabled
     # returns actual distance recorded. Subtract front_sonar_offset to get distance to front of robot
 
+    def speedofsound(temp:float = 16) -> float:
+        """
+        Returns the speed of sound by using external temperature
+        """
+        return 331.3 * sqrt( 1 + ( temp / 273.15 ))
+
     def left_front_sonar(self): # base address of E0 (write), E1 (read)
         # trigger ranging
         self.ser.write( b"\x55\xE0\x00\x01\x51" )
@@ -582,7 +588,7 @@ class CreepRobot():
         print ("left front sonar range  = ", left_front_sonar_range)
         return left_front_sonar_range
 
-    def right_front_sonar(self): # base address of E2 (write), E3 (read)
+    def right_front_sonar_old(self): # base address of E2 (write), E3 (read)
         # trigger ranging
         self.ser.write( b"\x55\xE2\x00\x01\x51" )
         n = self.ser.read(1)  #get acknowledge
@@ -595,8 +601,40 @@ class CreepRobot():
         targ1_hi = (n[0])
         targ1_lo = (n[1])
         right_front_sonar_range = targ1_lo + (targ1_hi << 8)
-        print ("right front sonar range  = ", right_front_sonar_range)
         return right_front_sonar_range
+    
+    def right_front_sonar(self, samples=1):
+        readings = []
+
+        for _ in range(samples):
+            # trigger in cm
+            self.ser.write(b"\x55\xe2\x00\x01\x52")
+            self.ser.read(1)  # acknowledge
+
+            # wait until measurement complete
+            while True:
+                self.ser.write(b"\x55\xe3\x00\x01")  # read register 0
+                status = self.ser.read(1)
+                if status != b'\xff':          # 0xFF means busy
+                    break
+                time.sleep(0.01)
+
+            # Read range registers 2 & 3
+            self.ser.write(b"\x55\xe3\x02\x02")
+            n = self.ser.read(2)
+
+            targ1_hi = n[0]
+            targ1_lo = n[1]
+            distance = (targ1_lo + (targ1_hi << 8))* self.speedofsound() / 10000 / 2
+
+            readings.append(distance)
+
+            time.sleep(0.065)  # minimum safe delay between pings
+
+        distance = math.mean(readings)
+        # maybe use the median? might have better noise rejection
+        return distance
+    
 
     def rear_sonar(self): # base address of F0 (write), F1 (read)
         # trigger ranging
