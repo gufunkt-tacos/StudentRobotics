@@ -5,7 +5,7 @@ from creep.logic.robot_subroutines import get_floor_token, go_home
 def main():
     creep = CreepRobot()
     creep.initialise()
-    go_to_coords(creep, 0, 0)  # Example coordinates for the box
+    go_home(creep) 
 
 if __name__ == "__main__":
     main()
