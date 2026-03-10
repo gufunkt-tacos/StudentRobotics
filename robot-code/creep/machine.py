@@ -56,6 +56,12 @@ class Object:
         self.v_angle: int = v_angle
         self.type: ObjectType = get_type_from_id(id)
 
+    def __repr__(self) -> str:
+        return f"Object(id={self.id}, position={self.position}, h_angle={self.h_angle}, v_angle={self.v_angle}, type={self.type})"
+    
+    def __str__(self) -> str:
+        return f"Object(id={self.id}, position={self.position}, h_angle={self.h_angle}, v_angle={self.v_angle}, type={self.type})"
+
 def get_type_from_id(id: int) -> ObjectType:
     if id >= 0 and id <=19:
         return ObjectType.ARENA_MARKER
