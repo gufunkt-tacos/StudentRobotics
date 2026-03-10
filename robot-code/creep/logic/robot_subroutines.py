@@ -111,13 +111,15 @@ def go_home(creep: CreepRobot):
     marker_found = False
 
     arena_markers = creep.find_objects(ObjectType.ARENA_MARKER)
-    for i in range(len(arena_markers)):
-        for j in range(0,2):
-            if(arena_markers[i].position == creep.my_lab[j]):
-                marker_found = True
-                if(arena_markers[i].position < closest_token_dist):
-                    closest_token_dist = arena_markers[i].position
-                    closest_token_angle = arena_markers[i].h_angle
+    if (arena_markers):
+        for i in range(len(arena_markers)):
+            for j in range(0,2):
+                if(arena_markers[i].position == creep.my_lab[j]):
+                    marker_found = True
+                    if(arena_markers[i].position < closest_token_dist):
+                        closest_token_dist = arena_markers[i].position
+                        closest_token_angle = arena_markers[i].h_angle
+            print(str(arena_markers[i]))
     
     if marker_found:
         creep.turn_speed_angle(5, closest_token_angle)
@@ -126,12 +128,13 @@ def go_home(creep: CreepRobot):
 
     # If no arena marker is found, try to find the next one in the sequence
     for step in range(1,10):
-        for i in range(len(arena_markers)):
-            if(arena_markers[i].position == next_arena_token(creep.my_lab[0],step,-1) or arena_markers[i].position == next_arena_token(creep.my_lab[2],step,1)):
-                marker_found = True
-                if(arena_markers[i].position < closest_token_dist):
-                    closest_token_dist = arena_markers[i].position
-                    closest_token_angle = arena_markers[i].h_angle
+        if (arena_markers):
+            for i in range(len(arena_markers)):
+                if(arena_markers[i].position == next_arena_token(creep.my_lab[0],step,-1) or arena_markers[i].position == next_arena_token(creep.my_lab[2],step,1)):
+                    marker_found = True
+                    if(arena_markers[i].position < closest_token_dist):
+                        closest_token_dist = arena_markers[i].position
+                        closest_token_angle = arena_markers[i].h_angle
     
     if marker_found:
         creep.turn_speed_angle(5, closest_token_angle)
