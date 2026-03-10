@@ -22,7 +22,7 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
 
         return closest_token
     else:
-        None
+        return None
 
     
 def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object) -> None:
@@ -103,7 +103,7 @@ Dylan to Dan -
     Not sure what this code is supposed to do so I have tried to refactor  
     but it may be wrong
 """
-def go_home(creep: CreepRobot):
+def go_home(creep: CreepRobot) -> None:
     
     creep.Doors_wedge()
     closest_token_dist = 8192
@@ -143,7 +143,7 @@ def go_home(creep: CreepRobot):
     go_home(creep)
 
 
-def navigate_obstacle(creep: CreepRobot):
+def navigate_obstacle(creep: CreepRobot) -> None:
     creep.Doors_wedge()
     right_sonar = creep.right_front_sonar()
     left_sonar = creep.left_front_sonar()
