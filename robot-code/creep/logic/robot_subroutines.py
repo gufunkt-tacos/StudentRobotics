@@ -141,20 +141,25 @@ def go_home(creep: CreepRobot):
     
     if marker_found:
         wall_facing = get_marker_wall(marker_id)
+        wall_zero = creep.lab_wall
+        wall_one = (creep.lab_wall + 1)%4
+        wall_two = (creep.lab_wall + 2)%4
+        wall_three = (creep.lab_wall + 3)%4
+        print(wall_zero, wall_one, wall_two, wall_three)
 
         match wall_facing:
-            case 0:
+            case int(wall_zero):
                 creep.turn_speed_angle(-16, 90)
-            case 1:
+            case int(wall_one):
+                creep.turn_speed_angle(-16, 90)
+            case int(wall_two):
                 creep.turn_speed_angle(16, 90)
-            case 2:
-                creep.turn_speed_angle(16, 90)
-            case 3:
+            case int(wall_three):
                 creep.turn_speed_angle(16, 90)
                     
 
     else:
-        temp=6769420
+        creep.turn_speed_angle(16,90)
     
     go_home(creep)
 

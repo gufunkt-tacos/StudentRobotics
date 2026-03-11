@@ -49,6 +49,11 @@ ARENA_MARKER_COORS = {
     3: {15: (0.0, 76.25), 16: (0.0, 152.5), 17: (0.0, 228.75), 18: (0.0, 305.0), 19: (0.0, 381.25)}
 }
 
+def get_marker_wall(id):
+    return id // 5
+
+
+
 get_marker_coords = lambda marker_id: ARENA_MARKER_COORS[marker_id // 5][marker_id]
 
 class ObjectType(Flag):
@@ -972,7 +977,7 @@ class CreepRobot():
                 for i in range(0,3,1):
                     j=3+i+((self.my_corner-1)*5)
                     self.my_lab.append(j)
-            
+            lab_wall = get_marker_wall(self.my_lab[2])
         else :
             my_mode = "COMP"
             print ("I am in",my_mode,"mode")
@@ -984,9 +989,12 @@ class CreepRobot():
                     j=3+i+((self.my_corner-1)*5)
                     self.my_lab.append(j)
             print ("my_lab ",self.my_lab)
+            lab_wall = get_marker_wall(self.my_lab[2])
         print ("I am in",my_mode,"mode")    
         print ("Selected starting corner = ",self.my_corner)
         print ("my_lab  ", self.my_lab)
+
+
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         #robot.wait_start() #        Waiting for start button to be pressed
         #&&&&&&&&&&&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'
@@ -1005,3 +1013,4 @@ class CreepRobot():
         print("")
         self.startup_jingle()
         self.robot.wait_start()
+
