@@ -140,34 +140,49 @@ def go_home(creep: CreepRobot):
                         closest_token_angle = arena_markers[i].h_angle
     
     if marker_found:
-        creep.drive_speed_distance(32, closest_token_dist/1.3)
+        creep.drive_speed_distance(32, closest_token_dist/1.05)
+        lab_wall = get_marker_wall(creep.my_lab[2])
 
         wall_facing = get_marker_wall(marker_id)
-        wall_zero = creep.lab_wall
-        wall_one = (creep.lab_wall + 1)%4
-        wall_two = (creep.lab_wall + 2)%4
-        wall_three = (creep.lab_wall + 3)%4
+        wall_zero = lab_wall
+        wall_one = (lab_wall + 1)%4
+        wall_two = (lab_wall + 2)%4
+        wall_three = (lab_wall + 3)%4
         print(wall_zero, wall_one, wall_two, wall_three)
+        print(marker_id)
+        print(get_marker_wall(marker_id))
+        print("wall facting: " + str(wall_facing))
 
         match wall_facing:
             case int(wall_zero):
+                print("turning from wall zero")
                 creep.turn_speed_angle(-16, 90)
             case int(wall_one):
+                print("turning from wall one")
                 creep.turn_speed_angle(-16, 90)
+                print(creep.left_front_sonar(), creep.right_front_sonar)
                 if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
+                    print("sonar used")
                     creep.turn_speed_angle(-16, 90)
             case int(wall_two):
+                print("turning from wall two")
                 creep.turn_speed_angle(16, 90)
+                print(creep.left_front_sonar(), creep.right_front_sonar)
                 if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
+                    print("sonar used")
                     creep.turn_speed_angle(16, 90)
             case int(wall_three):
+                print("turning from wall three")
                 creep.turn_speed_angle(16, 90)
+            case _:
+                print("can't find which wall i'm at") #should never reach this
         
         
                     
 
     else:
-        creep.turn_speed_angle(16,90) # if it can't see anything, turn
+        print("no token found")
+        creep.turn_speed_angle(-16,90) # if it can't see anything, turn
     
     go_home(creep)
 

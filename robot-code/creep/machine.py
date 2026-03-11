@@ -977,7 +977,7 @@ class CreepRobot():
                 for i in range(0,3,1):
                     j=3+i+((self.my_corner-1)*5)
                     self.my_lab.append(j)
-            lab_wall = get_marker_wall(self.my_lab[2])
+            
         else :
             my_mode = "COMP"
             print ("I am in",my_mode,"mode")
@@ -989,7 +989,6 @@ class CreepRobot():
                     j=3+i+((self.my_corner-1)*5)
                     self.my_lab.append(j)
             print ("my_lab ",self.my_lab)
-            lab_wall = get_marker_wall(self.my_lab[2])
         print ("I am in",my_mode,"mode")    
         print ("Selected starting corner = ",self.my_corner)
         print ("my_lab  ", self.my_lab)
