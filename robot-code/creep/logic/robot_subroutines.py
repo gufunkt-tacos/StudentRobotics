@@ -140,6 +140,8 @@ def go_home(creep: CreepRobot):
                         closest_token_angle = arena_markers[i].h_angle
     
     if marker_found:
+        creep.drive_speed_distance(32, closest_token_dist/1.3)
+
         wall_facing = get_marker_wall(marker_id)
         wall_zero = creep.lab_wall
         wall_one = (creep.lab_wall + 1)%4
@@ -152,14 +154,20 @@ def go_home(creep: CreepRobot):
                 creep.turn_speed_angle(-16, 90)
             case int(wall_one):
                 creep.turn_speed_angle(-16, 90)
+                if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
+                    creep.turn_speed_angle(-16, 90)
             case int(wall_two):
                 creep.turn_speed_angle(16, 90)
+                if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
+                    creep.turn_speed_angle(16, 90)
             case int(wall_three):
                 creep.turn_speed_angle(16, 90)
+        
+        
                     
 
     else:
-        creep.turn_speed_angle(16,90)
+        creep.turn_speed_angle(16,90) # if it can't see anything, turn
     
     go_home(creep)
 
