@@ -203,4 +203,22 @@ def approach_ledge(creep: CreepRobot, targetDistance = 10, tolerance = 5):
 
     print("Success!")
 
+global distance_from_ledge = 50 # THIS NEEDS CHANGING ONLY FOR TESTING 
+
+def setup_ledge_collection(creep: "CreepRobot", obj: "Object"):
+    global distance_from_ledge
+
+    # This is just the cosine rule dont worry
+    distance_to_move = math.sqrt(
+        distance_from_ledge**2 + obj.position**2
+        - 2 * distance_from_ledge * obj.position * math.cos(math.radians(obj.yaw))
+    )
+
+    # This is just the sine rule OK
+    angle_to_move = math.degrees(
+        math.asin(distance_from_ledge * math.sin(math.radians(obj.yaw)) / distance_to_move)
+    )
+
+    return distance_to_move, angle_to_move
+
 
