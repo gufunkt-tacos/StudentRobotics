@@ -108,7 +108,8 @@ def go_home(creep: CreepRobot):
     arena_markers = creep.find_objects(ObjectType.ARENA_MARKER)
     if (arena_markers):
         for i in range(len(arena_markers)):
-            for j in range(0,2):
+            for j in range(len(creep.my_lab)):
+                print(f"current marker = {arena_markers[i].id} lab token checking for = {creep.my_lab[j]}")
                 if(arena_markers[i].id == creep.my_lab[j]):
                     marker_found = True
                     if(arena_markers[i].position < closest_token_dist):
@@ -135,7 +136,7 @@ def go_home(creep: CreepRobot):
                         closest_token_angle = arena_markers[i].h_angle
     
     if marker_found:
-        creep.drive_speed_distance(32, closest_token_dist/1.05)
+        
         lab_wall = get_marker_wall(creep.my_lab[2])
 
         wall_facing = get_marker_wall(marker_id)
@@ -150,6 +151,7 @@ def go_home(creep: CreepRobot):
         print("wall facting: " + str(wall_facing))
 
         if(wall_facing == wall_zero):
+             creep.drive_speed_distance(32, closest_token_dist/1)
              print("turning from wall zero")
              creep.turn_speed_angle(-16, 90)
         elif(wall_facing == wall_one):
@@ -167,6 +169,7 @@ def go_home(creep: CreepRobot):
             #    print("sonar used")
             #    creep.turn_speed_angle(16, 90)
         elif(wall_facing == wall_three):
+            creep.drive_speed_distance(32, closest_token_dist/1)
             print("turning from wall three")
             creep.turn_speed_angle(16, 90)
         else:
@@ -194,6 +197,6 @@ def navigate_obstacle(creep: CreepRobot):
                     closest_token_dist = valid_tokens[i].position
             
         if (closest_token_dist > 50):
-            creep.turn_speed_angle(32*sign(right_sonar-left_sonar),90)
+            creep.turn_speed_angle(16*sign(right_sonar-left_sonar),90)
             creep.drive_speed_distance(20,50)
-            creep.turn_speed_angle(32*-sign(right_sonar-left_sonar),90)
+            creep.turn_speed_angle(16*-sign(right_sonar-left_sonar),90)
