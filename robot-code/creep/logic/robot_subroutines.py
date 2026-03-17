@@ -98,11 +98,6 @@ def next_arena_token(start: int, step: int, direction: int) -> int:
     return token
     
 
-"""
-Dylan to Dan - 
-    Not sure what this code is supposed to do so I have tried to refactor  
-    but it may be wrong
-"""
 def go_home(creep: CreepRobot):
     
     creep.Doors_wedge()
@@ -160,17 +155,17 @@ def go_home(creep: CreepRobot):
         elif(wall_facing == wall_one):
             print("turning from wall one")
             creep.turn_speed_angle(-16, 90)
-            print(creep.left_front_sonar(), creep.right_front_sonar)
-            if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
-                print("sonar used")
-                creep.turn_speed_angle(-16, 90)
+            #print(creep.left_front_sonar(), creep.right_front_sonar)
+            #if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
+            #    print("sonar used")
+            #    creep.turn_speed_angle(-16, 90)
         elif(wall_facing == wall_two):
             print("turning from wall two")
             creep.turn_speed_angle(16, 90)
-            print(creep.left_front_sonar(), creep.right_front_sonar)
-            if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
-                print("sonar used")
-                creep.turn_speed_angle(16, 90)
+            #print(creep.left_front_sonar(), creep.right_front_sonar)
+            #if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
+            #    print("sonar used")
+            #    creep.turn_speed_angle(16, 90)
         elif(wall_facing == wall_three):
             print("turning from wall three")
             creep.turn_speed_angle(16, 90)
@@ -179,7 +174,7 @@ def go_home(creep: CreepRobot):
         
     else:
         print("no token found")
-        creep.turn_speed_angle(-16,90) # if it can't see anything, turn
+        creep.turn_speed_angle(16,45) # if it can't see anything, turn
     
     go_home(creep)
 
