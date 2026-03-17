@@ -1,4 +1,5 @@
 from ..machine import *
+from basic_logic import *
 
 def sign(x):
     if(x>=0):
@@ -137,8 +138,8 @@ def go_home(creep: CreepRobot):
     
     if marker_found:
         
+        marker_coords = get_marker_coords(marker_id)
         lab_wall = get_marker_wall(creep.my_lab[2])
-
         wall_facing = get_marker_wall(marker_id)
         wall_zero = lab_wall
         wall_one = (lab_wall + 1)%4
