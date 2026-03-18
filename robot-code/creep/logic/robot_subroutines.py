@@ -26,7 +26,7 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
         return None
 
     
-def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object) -> None:
+def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object, open_doors: bool) -> None:
 
     scaling = 1
     creep.camera_pan(0)
@@ -46,17 +46,23 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
     creep.turn_speed_angle(5*sign(token_angle), (abs(token_angle)/scaling)/2)
 
     creep.drive_speed_distance(40, closest_token_dist)
-    creep.Doors_open()
-    creep.drive_speed_distance(40, 60)
-    creep.Doors_close()
-    creep.Doors_wedge()
+    
+    if open_doors:
+        creep.Doors_open()
+        creep.drive_speed_distance(40, 60)
+        creep.Doors_close()
+        creep.Doors_wedge()
+    else:
+        creep.Doors.wedge()
+        creep.drive_speed_distance(40, 60)
+
 
 
 def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     # Find a token in front of the robot
     closest_token = find_closest_token(creep, type)
     if closest_token:
-        go_to_closest_token(creep, type, closest_token)
+        go_to_closest_token(creep, type, closest_token, True)
         return True
     
     # If no token is found, pan the camera to the left and right to try and find one
@@ -65,7 +71,7 @@ def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     closest_token = find_closest_token(creep, type, angle_offset)
 
     if closest_token:
-        go_to_closest_token(creep, type, closest_token)
+        go_to_closest_token(creep, type, closest_token, True)
         return True
     
     # If still no token is found, pan the camera to the right and try again
@@ -74,7 +80,7 @@ def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     closest_token = find_closest_token(creep, type, angle_offset)
 
     if closest_token:
-        go_to_closest_token(creep, type, closest_token)
+        go_to_closest_token(creep, type, closest_token, True)
         return True
 
     # If no token is found after panning, return the camera to the center and return False

@@ -108,6 +108,8 @@ class CreepRobot():
     # The name of the device (e.g USB-ISS for the USB to I2C interface adaptor) is passed to the routine
     # If the device is found it prints out the tty.device_node, Vendor ID (VID) and Product ID (PID)
 
+    corner_markers = [0,19,4,5,9,10,14,15]
+
     def find_ports(self, portname: str) -> tuple[str, str]:
         """
         This routine examines the devices connected to the USB ports of the Pi4.
