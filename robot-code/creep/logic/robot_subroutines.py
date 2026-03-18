@@ -126,9 +126,9 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     new_closest_token = find_closest_token(creep, type, 0)
     if new_closest_token:
         closest_token_dist = new_closest_token.position
-        token_angle = new_closest_token.h_angle
+        new_token_angle = new_closest_token.h_angle
     
-    creep.turn_speed_angle(5*sign(token_angle), abs(token_angle)/2)
+    creep.turn_speed_angle(5*sign(new_token_angle), abs(new_token_angle)/2)
 
     creep.drive_speed_distance_objchk(16,120,6)
     creep.motor_stop
