@@ -402,7 +402,9 @@ class CreepRobot():
         #print ("encoder 1  value = ",encoder_1())
         #print ("encoder 2  value = ",encoder_2())
         return True
+    
 
+    
     def drive_actual_speed_distance(self, speed: float, distance: float) -> bool:
         """
         Speed is measured in mm/s
@@ -874,6 +876,115 @@ class CreepRobot():
             (Note.E7, 0.4),
         ]
         self.play(jingle, pause=0.06)
+    
+
+    #       drive_speed_distance_objchk(speed, distance, object_detect_range)
+    # Drive in a straight line at a defined speed (-128 to +127)
+    # Drive for a defined distance in centimetres or obstruction detected (object_detect_range)
+    # by front sonar (define left or right) Object detection uses rear sonar when reversing
+    # Returns object detected, distance requested, distance driven and distance remaining
+    # Drive times out after a calculated time is exceeded (speed, distance based)
+
+    def drive_speed_distance_objchk(self, speed, distance, object_detect_range):
+        # nominal speed of robot at speed 32 = 25cm/s (at speed 32)
+        # adjust for accel/decel times etc and add a 1 second margin
+        if speed != 0 :
+            drive_timeout_time = (((distance * 32) / 22) /abs(speed)) +2
+        else :
+            drive_timeout_time = 15.0 #default drive timeout time
+        if distance <= 0:
+            distance = 0
+            move = False
+            return
+        global max_encoder
+        global wheel_diameter
+        global drive_time_out
+        global object_detected
+        drive_time_out = False
+        object_detected = False
+        print ("in drive_speed_distance_objchk, will reset both encoders")
+        object_detected = False
+        range_detected = 0
+        # convert distance to an encoder value
+        required_distance_encoder_value = int((distance / (wheel_diameter * 3.142)) * 360)
+        # reset encoders to 0
+        self.reset_both_encoders()
+        time.sleep(.1)
+        # start motors
+        time_started_drive = time.time() # gets time when drive was started
+        self.drive_sync(speed, 0)
+        time.sleep(.1) #important ??
+        #If speed > 0 (OK but if <0 then need to correct encoder for -ve values)
+        move = False
+        encoder1 = self.encoder_1()
+        if speed > 0 :
+            while ((self.encoder_1() < required_distance_encoder_value \
+            or self.encoder_2() < required_distance_encoder_value))\
+            and ((time.time() - time_started_drive) < drive_timeout_time ):
+        #while (encoder_1() < required_distance_encoder_value) and (front_sonar() > object_detect_range):
+        #distance_driven = (encoder_1() * wheel_diameter * 3.142)/360
+                range_detected_front_left = self.left_front_sonar()
+                move = True
+                if (range_detected_front_left <= object_detect_range):
+                    object_detected = True
+                    print ("sonar front left detected at ", range_detected_front_left)
+                    print ("sonar front right detected at ", range_detected_front_right)
+                    break
+                
+                range_detected_front_right = self.right_front_sonar()
+                if (range_detected_front_right <= object_detect_range):
+                    object_detected = True
+                    print ("sonar front left detected at ", range_detected_front_left)
+                    print ("sonar front right detected at ", range_detected_front_right)
+                    break    
+
+        elif speed < 0 :
+            #print ("sonar rear ",rear_sonar())
+            while(((self.encoder_1()) > (max_encoder - required_distance_encoder_value) \
+            or (self.encoder_2()) > (max_encoder - required_distance_encoder_value)))\
+            and ((time.time() - time_started_drive) < drive_timeout_time):
+            #while (encoder_1()-0) > (max_encoder - required_distance_encoder_value):
+                range_detected_rear = 10000
+                range_detected_rear = self.rear_sonar()
+                move = True
+                        
+                if range_detected_rear <= object_detect_range :
+                    object_detected = True
+                    print ("object detect range ", object_detect_range)
+                    print ("sonar rear detected at ", range_detected_rear)
+                    print ("object detected during loop")
+                    break
+            print (" I have exited the reverse drive_objchk loop " )               
+        if (time.time() - time_started_drive) > drive_timeout_time :
+            drive_time_out = True
+            
+            print ("Drive timed out in ",(time.time() - time_started_drive)," secs")
+        
+        else :
+            move = False
+        # demanded distance achieved or object detected, stop motors
+        self.motor_stop()
+        time.sleep(.1)
+            
+        if speed >0 :
+            distance_driven = round(((self.encoder_1() * wheel_diameter * 3.142)/360),2)
+            if object_detected == True:
+                print ("object at front left ", range_detected_front_left)
+                print ("object at front right", range_detected_front_right)
+            
+        elif speed < 0:
+            distance_driven = round((((max_encoder - self.encoder_1()) * wheel_diameter * 3.142)/360),2)
+            if object_detected == True:
+                print("object at rear ", range_detected_rear)
+            
+        distance_to_go = round ((distance - distance_driven),2)
+        #print "Calculated drive time-out = ", drive_timeout_time
+        #print "Time for drive = ", (time.time() - time_started_drive), " secs"
+        #print "distance ", distance
+        #print "distance_driven ", distance_driven
+        #print "distance to go ", distance_to_go
+        
+        return object_detected, range_detected, distance, distance_driven, distance_to_go 
 
     #_______________________________________________________________________________
 

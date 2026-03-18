@@ -56,6 +56,88 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
         creep.Doors.wedge()
         creep.drive_speed_distance(40, 60)
 
+def collect_ledge_token(creep: CreepRobot):
+#this is copied from keith; idk how it works AT ALL
+
+    height = creep.sucker_height()
+    print("height = ",height, " cms")
+    while height > 10:
+        height = creep.sucker_height()
+        print("height = ",height, " cms")
+        # extend arm
+        print("extending arm")
+        #robot.motor_boards["SR0VJ1K"].motors[1].power = -1.0
+        creep.Arm_Extend(1)
+    print("Token detected, stop arm extending")
+    # robot.motor_boards["SR0VJ1K"].motors[1].power = 0  
+    creep.Arm_Stop()  
+    #vacuum on
+    creep.VacValve("GRIP") # Allows suction
+    creep.VacPump(1)
+    time.sleep(1)
+    #tilt arm down
+    vacPressure = int(creep.robot.arduino.command("z"))
+    creep.Arm_tilt_down()
+    while (vacPressure > 50):
+        vacPressure = int(creep.robot.arduino.command("z"))
+        print("Vac Pressure = ",vacPressure)
+    time.sleep(.5)   
+    #tilt arm up
+    creep.Arm_tilt_up()
+    time.sleep(.5)
+    #retract arm
+    #robot.motor_boards["SR0VJ1K"].motors[1].power = 1.0
+    creep.Arm_Retract(1) # full speed. Takes around 7 seconds 
+    time.sleep(7)
+    
+    #vacuum off
+    #robot.motor_boards["SR0VJ1K"].motors[0].power = 0
+    creep.VacValve("VENT") # releases vacuum
+    creep.VacPump(0)
+
+    creep.Arm_tilt_up()
+    height = creep.sucker_height()
+    print("height = ",height, " cms")
+    while height < 10:
+        height = creep.sucker_height()
+        print("height = ",height, " cms")
+        # extend arm
+        print("extending arm")
+        #robot.motor_boards["SR0VJ1K"].motors[1].power = -1.0
+        creep.Arm_Extend(1)
+    creep.Arm_tilt_down()
+    creep.Arm_Retract(1)    
+    time.sleep(3)
+
+def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
+    #turn towards platform
+    creep.turn_speed_angle(16*sign(angle_to_ledge),abs(angle_to_ledge))
+    #reverse away from platform
+    creep.drive_speed_distance(-16,70)
+
+    closest_token = find_closest_token(creep, type, 0)
+    closest_token_dist = closest_token.position
+    token_angle = closest_token.h_angle
+
+    print(closest_token_dist)
+    creep.turn_speed_angle(10*sign(token_angle), abs(token_angle))
+
+    # Try to find the token again after turning, to get another reading
+    new_closest_token = find_closest_token(creep, type, 0)
+    if new_closest_token:
+        closest_token_dist = new_closest_token.position
+        token_angle = new_closest_token.h_angle
+    
+    creep.turn_speed_angle(5*sign(token_angle), abs(token_angle)/2)
+
+    creep.drive_speed_distance_objchk(16,120,6)
+    creep.motor_stop
+    collect_ledge_token(creep)
+
+    creep.drive_speed_distance_objchk(-8,50,20)
+    creep.turn_speed_angle(-10*sign(token_angle), abs(token_angle))
+
+
 
 
 def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
@@ -104,6 +186,7 @@ def next_arena_token(start: int, step: int, direction: int) -> int:
         token+=20
     return token
     
+
 
 def go_home(creep: CreepRobot):
     
