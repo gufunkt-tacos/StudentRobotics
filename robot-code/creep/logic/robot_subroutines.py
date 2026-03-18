@@ -138,6 +138,13 @@ def go_home(creep: CreepRobot):
     
     if marker_found:
         
+        marker_in_corner = False
+
+        for marker in creep.corner_markers:
+            if marker == marker_id:
+                marker_in_corner = True
+
+
         marker_coords = get_marker_coords(marker_id)
         lab_wall = get_marker_wall(creep.my_lab[2])
         wall_facing = get_marker_wall(marker_id)
@@ -154,7 +161,7 @@ def go_home(creep: CreepRobot):
 
         if(wall_facing == wall_zero):
              print("turning from wall zero")
-             if (closest_token_dist>75):
+             if (closest_token_dist>75 and marker_in_corner == False):
                 creep.turn_speed_angle(16,180)
                 print("turning 180deg")
              else:
@@ -163,7 +170,7 @@ def go_home(creep: CreepRobot):
                 
         elif(wall_facing == wall_one):
             print("turning from wall one")
-            if (closest_token_dist>75):
+            if (closest_token_dist>75 and marker_in_corner == False):
                 creep.turn_speed_angle(16,180)
                 print("turning 180deg")
             else:
@@ -171,14 +178,14 @@ def go_home(creep: CreepRobot):
             
         elif(wall_facing == wall_two):
             print("turning from wall two")
-            if (closest_token_dist>75):
+            if (closest_token_dist>75 and marker_in_corner == False):
                 creep.turn_speed_angle(16,180)
                 print("turning 180deg")
             else:
                 creep.turn_speed_angle(16, 90)
         elif(wall_facing == wall_three):
             print("turning from wall three")
-            if (closest_token_dist>75):
+            if (closest_token_dist>75 and marker_in_corner == False):
                 creep.turn_speed_angle(16,180)
                 print("turning 180deg")
             else:
