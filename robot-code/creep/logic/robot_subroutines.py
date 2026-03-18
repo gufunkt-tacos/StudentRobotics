@@ -149,30 +149,43 @@ def go_home(creep: CreepRobot):
         print(wall_zero, wall_one, wall_two, wall_three)
         print(marker_id)
         print(get_marker_wall(marker_id))
-        print("wall facting: " + str(wall_facing))
+        print("wall facing: " + str(wall_facing))
+        print("distance: " + str(closest_token_dist))
 
         if(wall_facing == wall_zero):
-             creep.drive_speed_distance(32, closest_token_dist/1)
              print("turning from wall zero")
-             creep.turn_speed_angle(-16, 90)
+             if (closest_token_dist>75):
+                creep.turn_speed_angle(16,180)
+                print("turning 180deg")
+             else:
+                creep.drive_speed_distance(32, closest_token_dist/1)
+                creep.turn_speed_angle(-16, 90)
+                
         elif(wall_facing == wall_one):
             print("turning from wall one")
-            creep.turn_speed_angle(-16, 90)
-            #print(creep.left_front_sonar(), creep.right_front_sonar)
-            #if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
-            #    print("sonar used")
-            #    creep.turn_speed_angle(-16, 90)
+            if (closest_token_dist>75):
+                creep.turn_speed_angle(16,180)
+                print("turning 180deg")
+            else:
+                creep.turn_speed_angle(-16, 90)
+            
         elif(wall_facing == wall_two):
             print("turning from wall two")
-            creep.turn_speed_angle(16, 90)
-            #print(creep.left_front_sonar(), creep.right_front_sonar)
-            #if(creep.left_front_sonar() < 50 or creep.right_front_sonar() < 50):
-            #    print("sonar used")
-            #    creep.turn_speed_angle(16, 90)
+            if (closest_token_dist>75):
+                creep.turn_speed_angle(16,180)
+                print("turning 180deg")
+            else:
+                creep.turn_speed_angle(16, 90)
         elif(wall_facing == wall_three):
-            creep.drive_speed_distance(32, closest_token_dist/1)
             print("turning from wall three")
-            creep.turn_speed_angle(16, 90)
+            if (closest_token_dist>75):
+                creep.turn_speed_angle(16,180)
+                print("turning 180deg")
+            else:
+                creep.drive_speed_distance(32, closest_token_dist/1)
+                creep.turn_speed_angle(16, 90)
+
+
         else:
             print("can't find which wall i'm at") #should never reach this   
         
