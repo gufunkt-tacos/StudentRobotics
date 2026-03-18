@@ -805,8 +805,8 @@ class CreepRobot():
         Finds all objects of certain type in the camera's vision
         '''
         angle_correction = 0
-        camera_vertical_height = 48
-        camera_horizontal_offset = 36
+        camera_vertical_height = 44.5
+        camera_horizontal_offset = 5
 
         self.robot.kch.leds[LED_A].colour = Colour.OFF
         self.robot.kch.leds[LED_B].colour = Colour.OFF
@@ -894,7 +894,7 @@ class CreepRobot():
         self.wheelspace = 37.9 # 37.9 new robot,31.5 tracks,34.60 for old robot,36.75 for 2020 test base
         self.wheel_diameter = 10.8 #10.8 for new robot, 10 without tyres,5.10 tracks,10.50 for 10cm wheel with tyre
         self.max_encoder = 4294967295 # required when encoder value <0
-        self.camera_servo_offset_value = 0 # +ve offset anti-clock
+        self.camera_servo_offset_value = -2 # +ve offset anti-clock
         #...............................................................................
         self.my_corner = 0 # Will be set by competition dongle with R.zone
         # The following variables are used by the MD25 motor drive board
