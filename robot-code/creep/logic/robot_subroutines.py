@@ -53,7 +53,7 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
         creep.Doors_close()
         creep.Doors_wedge()
     else:
-        creep.Doors.wedge()
+        creep.Doors_wedge()
         creep.drive_speed_distance(40, 60)
 
 def collect_ledge_token(creep: CreepRobot):
