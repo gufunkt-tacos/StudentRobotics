@@ -1,5 +1,5 @@
 from ..machine import *
-from basic_logic import *
+from creep.logic.basic_logic import *
 
 def sign(x):
     if(x>=0):

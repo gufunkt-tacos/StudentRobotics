@@ -906,7 +906,7 @@ class CreepRobot():
         object_detected = False
         range_detected = 0
         # convert distance to an encoder value
-        required_distance_encoder_value = int((distance / (wheel_diameter * 3.142)) * 360)
+        required_distance_encoder_value = int((distance / (self.wheel_diameter * 3.142)) * 360)
         # reset encoders to 0
         self.reset_both_encoders()
         time.sleep(.1)
@@ -940,8 +940,8 @@ class CreepRobot():
 
         elif speed < 0 :
             #print ("sonar rear ",rear_sonar())
-            while(((self.encoder_1()) > (max_encoder - required_distance_encoder_value) \
-            or (self.encoder_2()) > (max_encoder - required_distance_encoder_value)))\
+            while(((self.encoder_1()) > (self.max_encoder - required_distance_encoder_value) \
+            or (self.encoder_2()) > (self.max_encoder - required_distance_encoder_value)))\
             and ((time.time() - time_started_drive) < drive_timeout_time):
             #while (encoder_1()-0) > (max_encoder - required_distance_encoder_value):
                 range_detected_rear = 10000
@@ -967,13 +967,13 @@ class CreepRobot():
         time.sleep(.1)
             
         if speed >0 :
-            distance_driven = round(((self.encoder_1() * wheel_diameter * 3.142)/360),2)
+            distance_driven = round(((self.encoder_1() * self.wheel_diameter * 3.142)/360),2)
             if object_detected == True:
                 print ("object at front left ", range_detected_front_left)
                 print ("object at front right", range_detected_front_right)
             
         elif speed < 0:
-            distance_driven = round((((max_encoder - self.encoder_1()) * wheel_diameter * 3.142)/360),2)
+            distance_driven = round((((self.max_encoder - self.encoder_1()) * self.wheel_diameter * 3.142)/360),2)
             if object_detected == True:
                 print("object at rear ", range_detected_rear)
             

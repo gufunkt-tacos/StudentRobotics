@@ -1,5 +1,5 @@
 from creep.machine import CreepRobot, ObjectType
-from creep.logic.basic_logic import *
+#from creep.logic.basic_logic import *
 from creep.logic.robot_subroutines import *
 from creep.logic.basic_strategy import *
 
