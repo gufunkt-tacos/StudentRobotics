@@ -2,7 +2,7 @@ from creep.machine import *
 from creep.logic.basic_logic import *
 from creep.logic.robot_subroutines import *
 
-def strategy(creep: CreepRobot):
+def strategy_base(creep: CreepRobot):
     #look for the closest box; get it
     get_token(creep, ObjectType.BASE, "floor")
 
