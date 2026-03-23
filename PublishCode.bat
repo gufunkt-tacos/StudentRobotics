@@ -18,7 +18,7 @@ if not exist "%SOURCE_DIR%" (
 
 xcopy "%SOURCE_DIR%" "%DEST_DIR%" /E
 
-echo File copied to USB successfully.
+echo Folder copied to USB successfully.
 powershell -command "$driveEject = New-Object -ComObject Shell.Application; $driveEject.Namespace(17).ParseName('D:').InvokeVerb('Eject')"
 echo USB ejected.
 pause
