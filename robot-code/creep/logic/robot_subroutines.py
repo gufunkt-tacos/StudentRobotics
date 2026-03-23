@@ -265,8 +265,9 @@ def get_box(creep: CreepRobot):
 
 
 
-def clean_up_after_collecting_from_ledge(success):
-    
+def clean_up_after_collecting_from_ledge(creep: CreepRobot):
+    global distance_from_ledge
+    creep.drive_speed_distance(moving_speed, distance_from_ledge)
     return
 
 global distance_from_ledge  # THIS NEEDS CHANGING ONLY FOR TESTING 
@@ -295,6 +296,7 @@ moving_speed = 30
 
 def collect_box_from_ledge(creep: CreepRobot, obj: Object):
     global distance_from_ledge
+    global ledge_collection_success_flag
 
     distance_to_move = math.sqrt(
         distance_from_ledge**2 + obj.position**2
@@ -315,6 +317,11 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object):
         get_box(creep)
 
     clean_up_after_collecting_from_ledge(creep)
+
+    if ledge_collection_success_flag:
+        print("SEQUENCE COMPLETED SUCCESSFULYL AND BOX WAS PICKED UP")
+    else:
+        print("SEQUENCE FAILED AND NO BOX WAS PICKED UP")
 
 
 
