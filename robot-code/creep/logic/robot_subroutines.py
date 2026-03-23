@@ -1,4 +1,6 @@
 from ..machine import CreepRobot, Object, ObjectType
+import math
+import time
 
 def sign(x):
     if(x>=0):
@@ -166,7 +168,7 @@ def navigate_obstacle(creep: CreepRobot):
             creep.turn_speed_angle(32*-sign(right_sonar-left_sonar),90)
 
 
-global speedfactor
+global speedfactor # only temporary
 global maxspeed
 maxspeed = 30
 speedfactor = 1
@@ -203,22 +205,120 @@ def approach_ledge(creep: CreepRobot, targetDistance = 10, tolerance = 5):
 
     print("Success!")
 
-global distance_from_ledge = 50 # THIS NEEDS CHANGING ONLY FOR TESTING 
+global sucker_timeout       # temp change later
+global required_box_height
+global time_for_wiggle
+required_box_height = 5
+sucker_timeout = 10
+time_for_wiggle = 0.5
 
-def setup_ledge_collection(creep: "CreepRobot", obj: "Object"):
+def box_detected(creep):
+    return creep.sucker_height() <= required_box_height
+
+def look_for_box_on_ledge(creep: CreepRobot):
+    global required_box_height
+    global sucker_timeout
+
+    if box_detected(creep):
+        get_box(creep)
+    else:
+        start_time = time.time()
+        creep.drive_both(moving_speed,-moving_speed)
+
+        while time.time() - start_time < time_for_wiggle:
+            if box_detected(creep):
+                return True
+            
+        start_time = time.time()
+        creep.drive_both(-moving_speed,moving_speed)
+
+        while time.time() - start_time < 2 * time_for_wiggle:
+            if box_detected(creep):
+                return True
+
+        start_time = time.time()
+        creep.drive_both(moving_speed, - moving_speed)
+
+        while time.time() - start_time < time_for_wiggle:
+            if box_detected(creep):
+                return True
+    
+    return False
+        
+global ledge_collection_success_flag
+ledge_collection_success_flag = False
+
+
+        
+def get_box(creep: CreepRobot):
+        global ledge_collection_success_flag
+        creep.VacPump(1)
+        creep.VacValve("GRIP")
+        creep.Arm_tilt_down()
+        start_time = time.time()
+        while time.time() - start_time < sucker_timeout:
+            if creep.sucker_gripping():
+                ledge_collection_success_flag = True
+                break
+            ledge_collection_success_flag = False
+        return
+
+
+
+def clean_up_after_collecting_from_ledge(success):
+    
+    return
+
+global distance_from_ledge  # THIS NEEDS CHANGING ONLY FOR TESTING 
+distance_from_ledge = 50
+
+# def calculate_optimal_ledge_collection(creep: CreepRobot, obj: Object):
+#     global distance_from_ledge
+
+#     # This is just the cosine rule dont worry
+#     distance_to_move = math.sqrt(
+#         distance_from_ledge**2 + obj.position**2
+#         - 2 * distance_from_ledge * obj.position * math.cos(math.radians(obj.yaw))
+#     )
+
+#     # This is just the sine rule OK
+#     angle_to_move = math.degrees(
+#         math.asin(distance_from_ledge * math.sin(math.radians(obj.yaw)) / distance_to_move)
+#     )
+
+#     return distance_to_move, angle_to_move
+
+global angle_speed
+angle_speed = 30
+global moving_speed
+moving_speed = 30
+
+def collect_box_from_ledge(creep: CreepRobot, obj: Object):
     global distance_from_ledge
 
-    # This is just the cosine rule dont worry
     distance_to_move = math.sqrt(
         distance_from_ledge**2 + obj.position**2
         - 2 * distance_from_ledge * obj.position * math.cos(math.radians(obj.yaw))
     )
 
-    # This is just the sine rule OK
     angle_to_move = math.degrees(
         math.asin(distance_from_ledge * math.sin(math.radians(obj.yaw)) / distance_to_move)
     )
 
-    return distance_to_move, angle_to_move
+    creep.turn_speed_angle(angle_speed, angle_to_move)
+
+    creep.drive_speed_distance(moving_speed, distance_to_move)
+
+    approach_ledge(creep)
+
+    if look_for_box_on_ledge(creep):
+        get_box(creep)
+
+    clean_up_after_collecting_from_ledge(creep)
+
+
+
+
+
 
 

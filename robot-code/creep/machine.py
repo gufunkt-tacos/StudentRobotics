@@ -336,7 +336,7 @@ class CreepRobot():
         """
         Drive in a straight line at a defined speed (-128 to +127)
 
-        Should be used in millimetres.
+        Should be used in centimetres.
 
         Resets both encoders at start of routine.
         Drive in a straight line at a defined speed (-128 to +127).
