@@ -1,7 +1,8 @@
 @echo off
 setlocal
 
-set "SOURCE_DIR=%~dp0\robot-code"
+set "SOURCE_DIR=%~dp0robot-code"
+echo SOURCE_DIR
 
 
 set "USB_DRIVE=D:\"
