@@ -155,6 +155,8 @@ def navigate_obstacle(creep: CreepRobot):
     if(right_sonar < 30 or left_sonar < 30):
         valid_tokens = creep.find_objects(ObjectType.TOKEN)
         print(valid_tokens)
+
+        closest_token_dist = float('inf') # in case valid tokens is empty
         if valid_tokens:
             closest_token_dist = valid_tokens[0].position
             print(len(valid_tokens))
@@ -190,11 +192,11 @@ def approach_ledge(creep: CreepRobot, targetDistance = 10, tolerance = 5):
 
         if abs(right_distance) > tolerance:
             success = False
-            right_speed = min(int(right_distance * speedfactor), sign(right_distance) * maxspeed)   
+            right_speed = sign(right_distance) * min(abs(int(right_distance * speedfactor)), maxspeed)
             print(right_speed)
         if abs(left_distance) > tolerance:
             success = False
-            left_speed = min(int(left_distance * speedfactor), sign(left_distance) * maxspeed)
+            left_speed = sign(left_distance) * min(abs(int(left_distance * speedfactor)), maxspeed)
             print(left_distance)
 
         print()
@@ -221,27 +223,28 @@ def look_for_box_on_ledge(creep: CreepRobot):
 
     if box_detected(creep):
         get_box(creep)
-    else:
-        start_time = time.time()
-        creep.drive_both(moving_speed,-moving_speed)
+        return True
+    
+    start_time = time.time()
+    creep.drive_both(moving_speed,-moving_speed)
 
-        while time.time() - start_time < time_for_wiggle:
-            if box_detected(creep):
-                return True
-            
-        start_time = time.time()
-        creep.drive_both(-moving_speed,moving_speed)
+    while time.time() - start_time < time_for_wiggle:
+        if box_detected(creep):
+            return True
+        
+    start_time = time.time()
+    creep.drive_both(-moving_speed,moving_speed)
 
-        while time.time() - start_time < 2 * time_for_wiggle:
-            if box_detected(creep):
-                return True
+    while time.time() - start_time < 2 * time_for_wiggle:
+        if box_detected(creep):
+            return True
 
-        start_time = time.time()
-        creep.drive_both(moving_speed, - moving_speed)
+    start_time = time.time()
+    creep.drive_both(moving_speed, - moving_speed)
 
-        while time.time() - start_time < time_for_wiggle:
-            if box_detected(creep):
-                return True
+    while time.time() - start_time < time_for_wiggle:
+        if box_detected(creep):
+            return True
     
     return False
         

@@ -135,7 +135,7 @@ class CreepRobot():
         resp = 0
         self.ser.write( b"\x55\xB2\x10\x01\x32" )  # b required to change unicode to bytes
         n = self.ser.read(1) #  get acknowledge, doesn't really matter about the format
-        resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
+        resp = n[0] # 0 is not OK (0) !0 is OK (1)
         #print("response = ",resp)
         if resp != 0:
             print ("Motor timeout disabled")
@@ -153,7 +153,7 @@ class CreepRobot():
 
         self.ser.write( b"\x55\xB2\x10\x01\x33" )  # b required to change unicode to bytes
         n = self.ser.read(1) # get acknowledge
-        resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
+        resp = n[0] # 0 is not OK (0) !0 is OK (1)
         if resp != 0 :
             print ("Motor timeout enabled")
         return
@@ -172,7 +172,7 @@ class CreepRobot():
         self.ser.write(b"\x55\xB2\x10\x01\x20")  # b required to change unicode to bytes
         #time.sleep(.1)
         n = self.ser.read(1) # get acknowledge
-        resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
+        resp = n[0] # 0 is not OK (0) !0 is OK (1)
         if resp == 0 :
             print ("wheel encoders reset failed")
         if resp != 0 :
@@ -237,7 +237,7 @@ class CreepRobot():
 
         self.ser.write(bytes([0x55, 0xB2, 0x10, 0x01, acelrate]))
         n = self.ser.read(1) # get acknowledge
-        resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
+        resp = n[0] # 0 is not OK (0) !0 is OK (1)
         time.sleep(0.1)
         if resp != 0 :
             print ("Accel rate set at ", acelrate)
@@ -861,10 +861,10 @@ class CreepRobot():
         time.sleep(self.rseewaittime)
 
         for marker in markers:
-            robot_distance = marker.position.distance/10,2
+            robot_distance = marker.position.distance/10
             if ((robot_distance ** 2 ) - ((camera_vertical_height -0) ** 2)) <= 0:
                 robot_distance = 1000 
-            robot_distance_corrected = math.sqrt((robot_distance ** 2) - ((camera_vertical_height - 0) ** 2)) - camera_horizontal_offset,0
+            robot_distance_corrected = math.sqrt((robot_distance ** 2) - ((camera_vertical_height - 0) ** 2)) - camera_horizontal_offset
             
             h_uncorrected_robot_angle = math.degrees(marker.position.horizontal_angle)
             h_robot_angle = h_uncorrected_robot_angle + angle_correction
@@ -872,9 +872,9 @@ class CreepRobot():
             v_uncorrected_robot_angle = math.degrees(marker.position.vertical_angle)
             v_robot_angle = v_uncorrected_robot_angle + angle_correction
    
-            yaw = math.degrees(marker.orientiation.yaw)
-            pitch = math.degrees(marker.orientiation.pitch)
-            roll = math.degrees(marker.orientiation.roll)
+            yaw = math.degrees(marker.orientation.yaw)
+            pitch = math.degrees(marker.orientation.pitch)
+            roll = math.degrees(marker.orientation.roll)
 
             objects.append(Object(marker.id, robot_distance_corrected, h_robot_angle, v_robot_angle, yaw, pitch, roll)) 
 
