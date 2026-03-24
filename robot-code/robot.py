@@ -6,8 +6,11 @@ import time
 def main():
     creep = CreepRobot()
     creep.initialise()
-    obj = find_closest_token(creep, ObjectType.TOKEN)
-    print(square_to_ledge())
+    obj = None
+    while not obj:
+        obj = find_closest_token(creep, ObjectType.TOKEN)
+
+    collect_box_from_ledge()
 
 
 if __name__ == "__main__":

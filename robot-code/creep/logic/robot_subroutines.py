@@ -246,13 +246,6 @@ class LedgeConfig:
     # Speed at which to reverse.
     retreat_speed: int = -30
  
-    # RETRY LOGIC
- 
-    # How many full ledge-pickup attempts to make before returning failure.
-    max_attempts: int = 1
- 
-    # After a failed attempt, rotate by this many degrees to search for the box at a slightly different position before retrying.
-    retry_lateral_search_angle: float = 10.0
  
  
 
@@ -645,7 +638,7 @@ def clamp(number: float) -> float:
 
 def collect_box_from_ledge(creep: CreepRobot, obj: Object, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> bool:
     """
-    Master startpoint for all ledge related functions.
+    Master entry-point for all ledge related functions.
 
     Call this function once a ledged box has been found and needs to be collected.
 
@@ -667,7 +660,9 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object, cfg: LedgeConfig = DE
         return LedgePickupResult.GRIP_LOST_ON_RETRACT
     
     retreat_from_ledge()
+    print("Box was successfully collected from ledge and robot was reset.")
     return LedgePickupResult.SUCCESS
+
 
     
 
