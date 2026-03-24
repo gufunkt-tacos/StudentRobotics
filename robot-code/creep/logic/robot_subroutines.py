@@ -1,6 +1,9 @@
 from ..machine import CreepRobot, Object, ObjectType
 import math
 import time
+from dataclasses import dataclass, field
+from enum import Enum, auto
+
 
 def sign(x):
     if(x>=0):
@@ -24,7 +27,7 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
 
         return closest_token
     else:
-        None
+        return None
 
     
 def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object) -> None:
@@ -168,6 +171,91 @@ def navigate_obstacle(creep: CreepRobot):
             creep.turn_speed_angle(32*sign(right_sonar-left_sonar),90)
             creep.drive_speed_distance(20,50)
             creep.turn_speed_angle(32*-sign(right_sonar-left_sonar),90)
+
+
+@dataclass
+class LedgeConfig:
+    """
+    All tunable parameters for the ledge-pickup sequence in one place.
+ 
+    Distances are in centimetres, angles in degrees, times in seconds.
+    """
+ 
+    # APPROACH/ALIGNMENT
+ 
+    # How far from the ledge (measured by the front sonars) we want to stop
+    target_dist_to_ledge: float = 10.0
+ 
+    # Both sonars must agree to within this many cm before we call ourselves square to the ledge
+    alignment_tolerance: float = 3.0
+ 
+    # Physical distance between the two front sonar sensors on the robot
+    sonar_separation: float = 35.0
+ 
+    # Drive / turn speed used during the alignment phase
+    alignment_drive_speed: int = 15
+    alignment_turn_speed:  int = 10
+ 
+    # Maximum wall-clock time we'll spend trying to square up before giving up.
+    alignment_timeout: float = 20.0
+ 
+    # How many sonar samples to average during alignment (more = slower but
+    # steadier readings).
+    sonar_samples: int = 5
+
+ 
+    # ARM EXTENSION
+ 
+    # Motor current threshold below which we consider the linear actuator to have reached its hard stop (fully extended or retracted).
+    arm_stall_current: float = 0.1
+ 
+    # Maximum time to wait for the arm to finish extending or retracting.
+    arm_timeout: float = 10.0
+
+ 
+    # GRIPPING
+ 
+    # Box height (IR sensor reading) below which we assume the sucker is directly over a box surface.
+    box_height_threshold: float = 5.0
+ 
+    # How long to attempt to achieve suction before declaring grip failure
+    grip_timeout: float = 8.0
+ 
+    # How long the grip must remain stable before we trust it
+    grip_confirmation_dwell: float = 0.5
+
+ 
+    # WIGGLE SEACH
+ 
+    # Speed used to rotate in place while scanning for the box
+    wiggle_speed: int = 15
+ 
+    # Duration of each wiggle half-swing.
+    wiggle_duration: float = 0.5
+ 
+    # Number of full left-right-centre cycles before giving up the box search
+    wiggle_retries: int = 3
+
+ 
+    # RETREAT
+ 
+    # How far to reverse after completing (or failing) a pickup attempt
+    retreat_distance: float = 50.0
+ 
+    # Speed at which to reverse.
+    retreat_speed: int = -30
+ 
+    # RETRY LOGIC
+ 
+    # How many full ledge-pickup attempts to make before returning failure.
+    max_attempts: int = 1
+ 
+    # After a failed attempt, rotate by this many degrees to search for the box at a slightly different position before retrying.
+    retry_lateral_search_angle: float = 20.0
+ 
+ 
+
+DEFAULT_LEDGE_CONFIG = LedgeConfig()
 
 
 global speedfactor # only temporary
