@@ -188,7 +188,9 @@ class LedgeConfig:
     target_dist_to_ledge: float = 5.0
  
     # Both sonars must agree to within this many cm before we call ourselves square to the ledge
-    alignment_tolerance: float = 1.0
+    distance_alignment_tolerance: float = 5.0
+
+    angle_alignment_tolerance: float = 5.0
  
     # Physical distance between the two front sonar sensors on the robot
     sonar_separation: float = 37.9
@@ -263,8 +265,6 @@ class LedgePickupResult(Enum):
     ALIGNMENT_TIMEOUT    = auto()  # Could not square up to the ledge in time
     NAV_FAILED           = auto()  # Could not navigate to the ledge at all
 
-
-
 def navigate_to_ledge_position(
     creep: CreepRobot,
     obj: Object,
@@ -272,49 +272,66 @@ def navigate_to_ledge_position(
     """
     Drive from the robot's current position to a point directly in front of
     the ledge, ready for the alignment phase.
- 
-    Returns True if the drive completed without timeout, False otherwise.
+
+    Returns True if both drives completed without timeout, False otherwise.
     """
-    print("[navigate_to_ledge_position] computing approach geometry…")
-    print(f"  obj.position={obj.position:.1f}  obj.yaw={obj.yaw:.1f}°  "
-          f"target_dist={cfg.target_dist_to_ledge:.1f}")
- 
+    print("[navigate_to_ledge_position] computing approach geometry")
+    print(f"  position={obj.position:.1f} cm  h_angle={obj.h_angle:.1f}°  "
+          f"yaw={obj.yaw:.1f}°  target_dist={cfg.target_dist_to_ledge:.1f} cm")
+
     d = cfg.target_dist_to_ledge
     r = obj.position
-    yaw_rad = math.radians(obj.yaw)
- 
-    # cosine rule: distance to the target approach point
+
+    ledge_normal_angle = obj.h_angle + obj.yaw
+
+    ledge_normal_rad = math.radians(ledge_normal_angle)
+
+    # Cosine rule: distance from robot to the approach point.
+    angle_at_ledge_rad = math.pi - ledge_normal_rad
     distance_to_move = math.sqrt(
-        d**2 + r**2 - 2 * d * r * math.cos(yaw_rad)
+        d**2 + r**2 - 2 * d * r * math.cos(angle_at_ledge_rad)
     )
- 
-    # heading angle to turn through
-    # guard against asin domain error from noisy inputs.
-    sin_arg = (d * math.sin(yaw_rad)) / distance_to_move
-    sin_arg = clamp(sin_arg, -1.0, 1.0)
+
+    # Sine rule: angle the robot must turn through before driving.
+    sin_arg = clamp(d * math.sin(angle_at_ledge_rad) / distance_to_move)
     angle_to_move = math.degrees(math.asin(sin_arg))
- 
-    print(f"turn {angle_to_move:.1f}°  then drive {distance_to_move:.1f} cm")
- 
-    creep.Doors_close()     # protect the arm during driving
-    creep.Arm_tilt_up()     # keep arm clear of obstacles
- 
-    # Turn
+
+    # After driving, the remaining turn to face the ledge squarely.
+    # The robot has already rotated by angle_to_move from its original heading,
+    # and the ledge normal sits at ledge_normal_angle in that original frame.
+    final_turn = ledge_normal_angle - angle_to_move
+
+    print(f"  ledge_normal={ledge_normal_angle:.1f}°  "
+          f"drive_angle={angle_to_move:.1f}°  drive_dist={distance_to_move:.1f} cm  "
+          f"final_turn={final_turn:.1f}°")
+
+    creep.Doors_close()
+    creep.Arm_tilt_up()
+
+    # turn to point
     if abs(angle_to_move) > 1.0:
-        ok = creep.turn_speed_angle(
-            30 * sign(angle_to_move), abs(angle_to_move))
+        ok = creep.turn_speed_angle(30 * sign(angle_to_move), abs(angle_to_move))
         if not ok:
-            print("[navigate_to_ledge_position] turn timed out")
+            print("[navigate_to_ledge_position] initial turn timed out")
             return False
- 
-    # Drive
+
+    # drive t ledge
     ok = creep.drive_speed_distance(30, distance_to_move)
     if not ok:
         print("[navigate_to_ledge_position] drive timed out")
         return False
- 
+
+    # single turn to face ledge
+    # square_to_ledge() will handle the fine iterative correction from here.
+    if abs(final_turn) > 1.0:
+        ok = creep.turn_speed_angle(30 * sign(final_turn), abs(final_turn))
+        if not ok:
+            print("[navigate_to_ledge_position] final facing turn timed out")
+            return False
+
     print("[navigate_to_ledge_position] complete")
     return True
+
 
 
 
@@ -327,7 +344,7 @@ def square_to_ledge(
 
     """
     print(f"[square_to_ledge] aligning, target={cfg.target_dist_to_ledge} cm  "
-          f"tol=±{cfg.alignment_tolerance} cm")
+          f"tol=±{cfg.distance_alignment_tolerance} cm")
  
  
     # Arm should already be extended from the caller and doors closed
@@ -365,15 +382,15 @@ def square_to_ledge(
  
         # compute angular error
         # arcsin domain is [-1, 1]; clamp to defend against floating-point noise.
-        sin_arg   = clamp((left_dist - right_dist) / cfg.sonar_separation, -1.0, 1.0)
+        sin_arg   = clamp((left_dist - right_dist) / cfg.sonar_separation)
         angle_err = math.degrees(math.asin(sin_arg))
  
         # ── 5. Compute range error ───────────────────────────────────────────
         mean_dist = mean([left_dist, right_dist])
         range_err = mean_dist - cfg.target_dist_to_ledge
  
-        angle_ok = abs(angle_err) <= cfg.alignment_tolerance / 2
-        range_ok = abs(range_err) <= cfg.alignment_tolerance
+        angle_ok = abs(angle_err) <= cfg.angle_alignment_tolerance
+        range_ok = abs(range_err) <= cfg.distance_alignment_tolerance
  
         print(f"  angle_err={angle_err:.2f}°  range_err={range_err:.2f} cm  "
               f"angle_ok={angle_ok}  range_ok={range_ok}")
@@ -633,7 +650,7 @@ def clamp(number: float) -> float:
     """
     Sets min and max of a number at -1 and 1 respectively
     """
-    return max(min(number, 1), 0)
+    return max(min(number, 1), -1)
 
 
 def collect_box_from_ledge(creep: CreepRobot, obj: Object, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> bool:
