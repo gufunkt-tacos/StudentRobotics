@@ -390,9 +390,9 @@ class CreepRobot():
 
     def drive_actual_speed_distance(self, speed: float, distance: float) -> bool:
         """
-        Speed is measured in mm/s
+        Speed is measured in cm
 
-        Distance is measured in mm
+        Distance is measured in cm
 
         Equivalent in practice to drive_steprate_distance
         """

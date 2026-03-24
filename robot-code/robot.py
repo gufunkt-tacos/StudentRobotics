@@ -7,7 +7,8 @@ def main():
     creep = CreepRobot()
     creep.initialise()
     obj = find_closest_token(creep, ObjectType.TOKEN)
-    collect_box_from_ledge(creep, obj)
+    print(square_to_ledge())
+
 
 if __name__ == "__main__":
     main()
