@@ -10,7 +10,7 @@ def main():
     while not obj:
         obj = find_closest_token(creep, ObjectType.TOKEN)
 
-    collect_box_from_ledge()
+    collect_box_from_ledge(creep, obj)
 
 
 if __name__ == "__main__":
