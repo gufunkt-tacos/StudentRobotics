@@ -3,6 +3,7 @@ import math
 import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from statistics import mean
 
 
 def sign(x):
@@ -257,166 +258,388 @@ class LedgeConfig:
 
 DEFAULT_LEDGE_CONFIG = LedgeConfig()
 
-
-global speedfactor # only temporary
-global maxspeed
-maxspeed = 30
-speedfactor = 1
-
-
-def approach_ledge(creep: CreepRobot, targetDistance = 10, tolerance = 5):
-    creep.Doors_close()
-    creep.Arm_Extend(1)
-
-    success = False
-
-    while not success:
-        success = True
-
-        right_distance = creep.right_front_sonar() - targetDistance
-        left_distance = creep.left_front_sonar() - targetDistance
-        left_speed = 0
-        right_speed = 0
-
-        if abs(right_distance) > tolerance:
-            success = False
-            right_speed = sign(right_distance) * min(abs(int(right_distance * speedfactor)), maxspeed)
-            print(right_speed)
-        if abs(left_distance) > tolerance:
-            success = False
-            left_speed = sign(left_distance) * min(abs(int(left_distance * speedfactor)), maxspeed)
-            print(left_distance)
-
-        print()
-
-        creep.drive_both(left_speed, right_speed)
-    
-    creep.motor_stop()
-
-    print("Success!")
-
-global sucker_timeout       # temp change later
-global required_box_height
-global time_for_wiggle
-required_box_height = 5
-sucker_timeout = 10
-time_for_wiggle = 0.5
-
-def box_detected(creep):
-    return creep.sucker_height() <= required_box_height
-
-def look_for_box_on_ledge(creep: CreepRobot):
-    global required_box_height
-    global sucker_timeout
-
-    if box_detected(creep):
-        get_box(creep)
-        return True
-    
-    start_time = time.time()
-    creep.drive_both(moving_speed,-moving_speed)
-
-    while time.time() - start_time < time_for_wiggle:
-        if box_detected(creep):
-            return True
-        
-    start_time = time.time()
-    creep.drive_both(-moving_speed,moving_speed)
-
-    while time.time() - start_time < 2 * time_for_wiggle:
-        if box_detected(creep):
-            return True
-
-    start_time = time.time()
-    creep.drive_both(moving_speed, - moving_speed)
-
-    while time.time() - start_time < time_for_wiggle:
-        if box_detected(creep):
-            return True
-    
-    return False
-        
-global ledge_collection_success_flag
-ledge_collection_success_flag = False
-
-
-        
-def get_box(creep: CreepRobot):
-        global ledge_collection_success_flag
-        creep.VacPump(1)
-        creep.VacValve("GRIP")
-        creep.Arm_tilt_down()
-        start_time = time.time()
-        while time.time() - start_time < sucker_timeout:
-            if creep.sucker_gripping():
-                ledge_collection_success_flag = True
-                break
-            ledge_collection_success_flag = False
-        return
+class LedgePickupResult(Enum):
+    """
+    Describes the outcome of a full ledge-pickup sequence.
+ 
+    """
+    SUCCESS              = auto()  # Box gripped and retracted cleanly
+    NO_BOX_FOUND         = auto()  # Arm extended but IR sensor never saw a box
+    GRIP_FAILED          = auto()  # IR sensor saw a box but suction never held
+    GRIP_LOST_ON_RETRACT = auto()  # Grip was good but lost during arm retraction
+    ALIGNMENT_TIMEOUT    = auto()  # Could not square up to the ledge in time
+    NAV_FAILED           = auto()  # Could not navigate to the ledge at all
 
 
 
-def clean_up_after_collecting_from_ledge(creep: CreepRobot):
-    global distance_from_ledge
-    creep.drive_speed_distance(moving_speed, distance_from_ledge)
-    return
 
-global distance_from_ledge  # THIS NEEDS CHANGING ONLY FOR TESTING 
-distance_from_ledge = 50
-
-# def calculate_optimal_ledge_collection(creep: CreepRobot, obj: Object):
-#     global distance_from_ledge
-
-#     # This is just the cosine rule dont worry
-#     distance_to_move = math.sqrt(
-#         distance_from_ledge**2 + obj.position**2
-#         - 2 * distance_from_ledge * obj.position * math.cos(math.radians(obj.yaw))
-#     )
-
-#     # This is just the sine rule OK
-#     angle_to_move = math.degrees(
-#         math.asin(distance_from_ledge * math.sin(math.radians(obj.yaw)) / distance_to_move)
-#     )
-
-#     return distance_to_move, angle_to_move
-
-global angle_speed
-angle_speed = 30
-global moving_speed
-moving_speed = 30
-
-def collect_box_from_ledge(creep: CreepRobot, obj: Object):
-    global distance_from_ledge
-    global ledge_collection_success_flag
-
+def navigate_to_ledge_position(
+    creep: CreepRobot,
+    obj: Object,
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    """
+    Drive from the robot's current position to a point directly in front of
+    the ledge, ready for the alignment phase.
+ 
+    Returns True if the drive completed without timeout, False otherwise.
+    """
+    print("[navigate_to_ledge_position] computing approach geometry…")
+    print(f"  obj.position={obj.position:.1f}  obj.yaw={obj.yaw:.1f}°  "
+          f"target_dist={cfg.target_dist_to_ledge:.1f}")
+ 
+    d = cfg.target_dist_to_ledge
+    r = obj.position
+    yaw_rad = math.radians(obj.yaw)
+ 
+    # cosine rule: distance to the target approach point
     distance_to_move = math.sqrt(
-        distance_from_ledge**2 + obj.position**2
-        - 2 * distance_from_ledge * obj.position * math.cos(math.radians(obj.yaw))
+        d**2 + r**2 - 2 * d * r * math.cos(yaw_rad)
     )
+ 
+    # heading angle to turn through
+    # guard against asin domain error from noisy inputs.
+    sin_arg = (d * math.sin(yaw_rad)) / distance_to_move
+    sin_arg = clamp(sin_arg, -1.0, 1.0)
+    angle_to_move = math.degrees(math.asin(sin_arg))
+ 
+    print(f"turn {angle_to_move:.1f}°  then drive {distance_to_move:.1f} cm")
+ 
+    creep.Doors_close()     # protect the arm during driving
+    creep.Arm_tilt_up()     # keep arm clear of obstacles
+ 
+    # Turn
+    if abs(angle_to_move) > 1.0:
+        ok = creep.turn_speed_angle(
+            30 * sign(angle_to_move), abs(angle_to_move))
+        if not ok:
+            print("[navigate_to_ledge_position] turn timed out")
+            return False
+ 
+    # Drive
+    ok = creep.drive_speed_distance(30, distance_to_move)
+    if not ok:
+        print("[navigate_to_ledge_position] drive timed out")
+        return False
+ 
+    print("[navigate_to_ledge_position] complete")
+    return True
 
-    angle_to_move = math.degrees(
-        math.asin(distance_from_ledge * math.sin(math.radians(obj.yaw)) / distance_to_move)
-    )
 
-    creep.turn_speed_angle(angle_speed, angle_to_move)
 
-    creep.drive_speed_distance(moving_speed, distance_to_move)
+def square_to_ledge(
+    creep: CreepRobot,
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    """
+    Use both front sonars to align the robot squarely with the ledge and
+    bring it to *cfg.target_dist_to_ledge* cm from it.
 
-    approach_ledge(creep)
+    """
+    print(f"[square_to_ledge] aligning, target={cfg.target_dist_to_ledge} cm  "
+          f"tol=±{cfg.alignment_tolerance} cm")
+ 
+ 
+    # Arm should already be extended from the caller and doors closed
+    creep.Doors_close()
+ 
+    t_start = time.time()
+    iteration = 0
+ 
+    while True:
+        iteration += 1
+        elapsed = time.time() - t_start
+ 
+        if elapsed > cfg.alignment_timeout:
+            print(f"[square_to_ledge] timed out after {elapsed:.1f}s "
+                  f"({iteration} iterations)")
+            creep.motor_stop()
+            return False
+ 
+        # ── 1. Read sonars ───────────────────────────────────────────────────
+        left_dist  = creep.left_front_sonar(samples=cfg.sonar_samples)
+        right_dist = creep.right_front_sonar(samples=cfg.sonar_samples)
+ 
+        print(f"  [iter {iteration}] L={left_dist:.1f}  R={right_dist:.1f}  "
+              f"elapsed={elapsed:.1f}s")
+ 
+        # sanity-check: sonars must be roughly consistent
+        # if the difference is larger than the physical sensor separation then the ledge is at a very extreme angle, or one sensor is seeing somethingelse entirely
+        # bail out rather than making things worse...
+        if abs(left_dist - right_dist) > cfg.sonar_separation:
+            print(f"[square_to_ledge] sonar spread too large "
+                  f"({abs(left_dist - right_dist):.1f} > {cfg.sonar_separation:.1f}) "
+                  f"– ledge may not be in front of the robot")
+            creep.motor_stop()
+            return False
+ 
+        # compute angular error
+        # arcsin domain is [-1, 1]; clamp to defend against floating-point noise.
+        sin_arg   = clamp((left_dist - right_dist) / cfg.sonar_separation, -1.0, 1.0)
+        angle_err = math.degrees(math.asin(sin_arg))
+ 
+        # ── 5. Compute range error ───────────────────────────────────────────
+        mean_dist = mean([left_dist, right_dist])
+        range_err = mean_dist - cfg.target_dist_to_ledge
+ 
+        angle_ok = abs(angle_err) <= cfg.alignment_tolerance / 2
+        range_ok = abs(range_err) <= cfg.alignment_tolerance
+ 
+        print(f"  angle_err={angle_err:.2f}°  range_err={range_err:.2f} cm  "
+              f"angle_ok={angle_ok}  range_ok={range_ok}")
+ 
+        if angle_ok and range_ok:
+            creep.motor_stop()
+            print(f"[square_to_ledge] aligned in {elapsed:.2f}s ✓")
+            return True
+ 
+        # correct angular error first and only when we are sure about it do we do the range correction
+        if not angle_ok:
+            turn_speed = cfg.alignment_turn_speed * sign(angle_err)
+            # turn by the full angle error as the next iteration will re-measure.
+            creep.turn_speed_angle(turn_speed, abs(angle_err))
+ 
+        # correct the range error finally
+        elif not range_ok:
+            # drive forward (positive range_err = too far) or backward.
+            drive_speed = cfg.alignment_drive_speed * sign(range_err)
+            creep.drive_speed_distance(drive_speed, abs(range_err))
+ 
+        # small pause to let the robot settle - is this necessary?????
+        time.sleep(0.1)
 
-    if look_for_box_on_ledge(creep):
-        get_box(creep)
 
-    clean_up_after_collecting_from_ledge(creep)
 
-    if ledge_collection_success_flag:
-        print("SEQUENCE COMPLETED SUCCESSFULYL AND BOX WAS PICKED UP")
+def scan_for_box_on_ledge(
+    creep: CreepRobot,
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    """
+    Search for a box on the ledge by wiggling left and right in front of it.
+ 
+    The search pattern is:
+        centre check → wiggle right → wiggle left → back to centre
+    repeated up to *cfg.wiggle_retries* times.
+ 
+    Returns True as soon as box_is_present() is detected
+    Returns False if the box is never found within all retries
+    """
+    print(f"[scan_for_box_on_ledge] searching with "
+          f"{cfg.wiggle_retries} retry cycles…")
+
+ 
+    # ── always check the centre position first ───────────────────────────────
+    if box_is_present(creep, cfg):
+        print("[scan_for_box_on_ledge] box found at centre position immediately")
+        return True
+ 
+    for attempt in range(cfg.wiggle_retries):
+        print(f"  [scan attempt {attempt + 1}/{cfg.wiggle_retries}]")
+ 
+        # WIGGLE RIGHT
+        # We use drive_both to spin in place; drive_both does encoder reset
+        # internally so we check the sensor in a timed loop.
+        t0 = time.time()
+        creep.drive_both(cfg.wiggle_speed, -cfg.wiggle_speed)
+        while time.time() - t0 < cfg.wiggle_duration:
+            if box_is_present(creep, cfg):
+                creep.motor_stop()
+                print("[scan_for_box_on_ledge] box found during right wiggle")
+                return True
+        creep.motor_stop()
+ 
+        # WIGGLE LEFT (double duration to cross through centre)
+        t0 = time.time()
+        creep.drive_both(-cfg.wiggle_speed, cfg.wiggle_speed)
+        while time.time() - t0 < cfg.wiggle_duration * 2:
+            if box_is_present(creep, cfg):
+                creep.motor_stop()
+                print("[scan_for_box_on_ledge] box found during left wiggle")
+                return True
+        creep.motor_stop()
+ 
+        # RETURN TO CENTRE
+        t0 = time.time()
+        creep.drive_both(cfg.wiggle_speed, -cfg.wiggle_speed)
+        while time.time() - t0 < cfg.wiggle_duration:
+            if box_is_present(creep, cfg):
+                creep.motor_stop()
+                print("[scan_for_box_on_ledge] box found returning to centre")
+                return True
+        creep.motor_stop()
+ 
+        # ── re-check centre ──────────────────────────────────────────────────
+        if box_is_present(creep, cfg):
+            print("[scan_for_box_on_ledge] box found at centre after wiggle cycle")
+            return True
+ 
+    print("[scan_for_box_on_ledge] box not found after all retries")
+    return False
+
+
+def box_is_present(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> bool:
+    """
+    Return True if the IR height sensor indicates a box is beneath the sucker
+    """
+    height = creep.sucker_height()
+    print(f"[box_is_present] IR height = {height:.2f} cm (threshold {cfg.box_height_threshold})")
+    return height <= cfg.box_height_threshold
+
+
+def grip_box(
+    creep: CreepRobot,
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    """
+    Attempt to grip the box that is currently beneath the sucker.
+ 
+    Sequence:
+      1. Activate vacuum pump and valve.
+      2. Tilt arm down so sucker makes contact.
+      3. Wait for suction to build and hold (confirm_grip).
+      4. On success: leave vacuum running and return True.
+      5. On failure: stop vacuum, tilt back up and return False.
+    """
+    print("[grip_box] activating vacuum and lowering arm…")
+ 
+    creep.VacValve("GRIP")
+    creep.VacPump(1)
+    creep.Arm_tilt_down()
+ 
+    # Give a short dwell for the arm to reach its down position and for the sucker to make firm contact before we start checking pressure.
+    time.sleep(0.3)
+ 
+    if confirm_grip(creep, cfg):
+        print("[grip_box] box gripped")
+        return True
     else:
-        print("SEQUENCE FAILED AND NO BOX WAS PICKED UP")
+        # Abort: vent, tilt back up, stop vacuum
+        print("[grip_box] grip failed, aborting")
+        creep.VacPump(0)
+        creep.VacValve("VENT")
+        time.sleep(0.2)
+        creep.VacValve("GRIP")
+        creep.Arm_tilt_up()
+        return False
+
+def confirm_grip(
+    creep: CreepRobot,
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    """
+    Wait up to *cfg.grip_timeout* seconds for the sucker to achieve and
+    hold a stable grip.
+ 
+    Returns True if grip was confirmed, False on timeout.
+    """
+    t_start    = time.time()
+    grip_since = None   # time when grip was first detected this cycle
+ 
+    while time.time() - t_start < cfg.grip_timeout:
+        if creep.sucker_gripping():
+            if grip_since is None:
+                grip_since = time.time()
+                print("[confirm_grip] grip detected waiting for dwell…")
+            elif time.time() - grip_since >= cfg.grip_confirmation_dwell:
+                print("[confirm_grip] grip confirmed")
+                return True
+        else:
+            if grip_since is not None:
+                print("[confirm_grip] grip dropped resetting dwell timer")
+            grip_since = None   # lost grip reset dwell timer
+        time.sleep(0.05)
+ 
+    print(f"[confirm_grip] timed out after {cfg.grip_timeout:.1f}s: no grip")
+    return False
+
+def retract_with_box(
+    creep: CreepRobot,
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    """
+    Retract the arm with the box held under suction, periodically verifying
+    that the grip has not been lost.
+ 
+    Sequence:
+      1. Tilt arm up (lifts box clear of the ledge surface).
+      2. Retract arm while monitoring grip.
+      3. Wait for arm to finish (stall current).
+      4. Final grip check.
+ 
+    Returns True if retraction completed with the grip intact.
+    Returns False if grip was lost mid-retraction (caller should check whether
+    the box just dropped or was deposited somewhere usable).
+ 
+    """
+    print("[retract_with_box] tilting arm up and retracting…")
+ 
+    # tilt up first to lift the box off the shelf
+    creep.Arm_tilt_up()
+    time.sleep(0.4)  
+ 
+    # start retracting
+    creep.Arm_Retract(1)
+ 
+    # Poll grip and arm-finished together
+    t_start = time.time()
+    while not has_arm_finished(creep, cfg):
+        if time.time() - t_start > cfg.arm_timeout:
+            print("[retract_with_box] retraction timed out")
+            creep.Arm_Stop()
+            # Still check the grip, we may have the box even if we timed out
+            break
+ 
+        if not creep.sucker_gripping():
+            # Grip lost during retraction.  Stop and report.
+            print("[retract_with_box] grip lost during retraction!")
+            creep.Arm_Stop()
+            creep.VacPump(0)
+            creep.VacValve("VENT")
+            time.sleep(0.2)
+            creep.VacValve("GRIP")
+            return False
+ 
+        time.sleep(0.05)
+ 
+    creep.Arm_Stop()
+    time.sleep(0.2)
+ 
+    # FINAL GRIP CHECK
+    if creep.sucker_gripping():
+        print("[retract_with_box] arm retracted with box secured")
+        return True
+    else:
+        print("[retract_with_box] final grip check failed: box may have been lost")
+        creep.VacPump(0)
+        creep.VacValve("VENT")
+        time.sleep(0.2)
+        creep.VacValve("GRIP")
+        return False
+    
+
+def has_arm_finished(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> bool:
+    """
+    Return True when the arm linear actuator has reached its hard stop.
+ 
+    The SR motor board reports the current through the motor.  When the
+    actuator hits a mechanical limit the motor stalls and its current drops
+    toward zero.  We use a threshold slightly above zero to account for
+    measurement noise.
+    """
+    current = creep.robot.motor_boards["SR0VJ1K"].motors[1].current
+    return current <= cfg.arm_stall_current
 
 
+def retreat_from_ledge(
+    creep: CreepRobot,
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,
+) -> None:
+    """
+    Reverse away from the ledge after a pickup attempt (successful or not).
+ 
+    Always called regardless of outcome so the robot is in a safe position
+    for the next action.
+    """
+    print(f"[retreat_from_ledge] reversing {cfg.retreat_distance:.0f} cm")
+    creep.drive_speed_distance(-abs(cfg.retreat_speed), cfg.retreat_distance)
 
 
-
-
-
+def clamp(number: float) -> float:
+    """
+    Sets min and max of a number at -1 and 1 respectively
+    """
+    return max(min(number, 1), 0)
