@@ -247,6 +247,11 @@ class LedgeConfig:
  
     # Speed at which to reverse.
     retreat_speed: int = -30
+
+    wiggle_speed: int = 15
+    wiggle_duration: float = 0.5
+    wiggle_retries: int = 3
+    wiggle_center_delay: float = 0.15 
  
  
  
@@ -290,7 +295,7 @@ def navigate_to_ledge_position(
     )
 
     creep.Arm_Extend(1)
-    # ── Approach point P in robot Cartesian frame ───────────────────────
+    
     # P = ledge_centre + d * outward_normal
     # outward_normal direction = (h + 180° - yaw) clockwise from forward
     #   => unit vector components:
@@ -333,152 +338,173 @@ def navigate_to_ledge_position(
     return True
 
 
+_CAM_STEP_CM = 6.0
 
 
 def square_to_ledge(
     creep: CreepRobot,
-    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,
+    token_type: ObjectType = ObjectType.TOKEN,
+) -> bool:
     """
-    Use both front sonars to align the robot squarely with the ledge and
-    bring it to *cfg.target_dist_to_ledge* cm from it.
-
+    Three-phase approach to the ledge.
+    Phase 1 — Camera:
+        Re-scans the token marker each step, drives toward the approach point
+        in STEP-sized increments until the camera loses sight of the marker.
+    Phase 2 — Sonar:
+        Uses both front sonars to square up and close the final distance gap,
+        exactly as before.
+    Throughout phases 1 and 2 the IR sensor is polled after every movement.
+    If it detects the box the robot advances CENTER_ADVANCE_CM to centre the
+    arm and returns True immediately.
+    Phase 3 — Wiggle fallback:
+        If the IR sensor never triggered, hands off to scan_for_box_on_ledge.
     """
-    print(f"[square_to_ledge] aligning, target={cfg.target_dist_to_ledge} cm  "
-          f"tol=±{cfg.distance_alignment_tolerance} cm")
- 
- 
-    # Arm should already be extended from the caller and doors closed
     creep.Doors_close()
- 
-    t_start = time.time()
+    # ── Phase 1: camera-guided approach ──────────────────────────────────────
+    print("[square_to_ledge] phase 1 — camera-guided approach")
+    markers = creep.find_objects(token_type)
+    current = min(markers, key=lambda m: m.position) if markers else None
+    while current is not None:
+        r   = current.position
+        d   = cfg.target_dist_to_ledge
+        h   = math.radians(current.h_angle)
+        yaw = math.radians(current.yaw)
+        Px = r * math.sin(h) - d * math.sin(h - yaw)
+        Py = r * math.cos(h) - d * math.cos(h - yaw)
+        turn_angle = math.degrees(math.atan2(Px, Py))
+        drive_dist = math.sqrt(Px ** 2 + Py ** 2)
+        print(f"  [cam] r={r:.1f}  drive={drive_dist:.1f}  turn={turn_angle:.1f}°")
+        if abs(turn_angle) > 2.0:
+            creep.turn_speed_angle(
+                cfg.alignment_turn_speed * sign(turn_angle), abs(turn_angle)
+            )
+        step = min(drive_dist, _CAM_STEP_CM)
+        if step > 0.5:
+            creep.drive_speed_distance(cfg.alignment_drive_speed, step)
+        # IR check after every movement
+        if box_is_present(creep, cfg):
+            print("[square_to_ledge] IR triggered in camera phase — centering")
+            creep.drive_speed_distance(cfg.alignment_drive_speed,
+                                       cfg.target_dist_to_ledge)
+            return True
+        markers = creep.find_objects(token_type)
+        current = min(markers, key=lambda m: m.position) if markers else None
+    print("[square_to_ledge] marker lost — switching to sonar phase")
+    # ── Phase 2: sonar-guided alignment ──────────────────────────────────────
+    print(f"[square_to_ledge] phase 2 — sonar  target={cfg.target_dist_to_ledge} cm  "
+          f"tol=±{cfg.distance_alignment_tolerance} cm")
+    t_start   = time.time()
     iteration = 0
- 
     while True:
         iteration += 1
         elapsed = time.time() - t_start
- 
         if elapsed > cfg.alignment_timeout:
-            print(f"[square_to_ledge] timed out after {elapsed:.1f}s "
-                  f"({iteration} iterations)")
+            print(f"[square_to_ledge] sonar phase timed out after {elapsed:.1f}s")
             creep.motor_stop()
-            return False
- 
-        # ── 1. Read sonars ───────────────────────────────────────────────────
+            break   # fall through to wiggle
+        # IR check at the start of every sonar iteration
+        if box_is_present(creep, cfg):
+            print("[square_to_ledge] IR triggered in sonar phase — centering")
+            creep.motor_stop()
+            creep.drive_speed_distance(cfg.alignment_drive_speed,
+                                       cfg.target_dist_to_ledge)
+            return True
         left_dist  = creep.left_front_sonar(samples=cfg.sonar_samples)
         right_dist = creep.right_front_sonar(samples=cfg.sonar_samples)
- 
-        print(f"  [iter {iteration}] L={left_dist:.1f}  R={right_dist:.1f}  "
+        print(f"  [sonar iter {iteration}] L={left_dist:.1f}  R={right_dist:.1f}  "
               f"elapsed={elapsed:.1f}s")
- 
-        # sanity-check: sonars must be roughly consistent
-        # if the difference is larger than the physical sensor separation then the ledge is at a very extreme angle, or one sensor is seeing somethingelse entirely
-        # bail out rather than making things worse...
         if abs(left_dist - right_dist) > cfg.sonar_separation:
             print(f"[square_to_ledge] sonar spread too large "
-                  f"({abs(left_dist - right_dist):.1f} > {cfg.sonar_separation:.1f}) "
-                  f"– ledge may not be in front of the robot")
+                  f"({abs(left_dist - right_dist):.1f} cm) — stopping")
             creep.motor_stop()
-            return False
- 
-        # compute angular error
-        # arcsin domain is [-1, 1]; clamp to defend against floating-point noise.
+            break
         sin_arg   = clamp((left_dist - right_dist) / cfg.sonar_separation)
         angle_err = math.degrees(math.asin(sin_arg))
- 
-        # ── 5. Compute range error ───────────────────────────────────────────
         mean_dist = mean([left_dist, right_dist])
         range_err = mean_dist - cfg.target_dist_to_ledge
- 
         angle_ok = abs(angle_err) <= cfg.angle_alignment_tolerance
         range_ok = abs(range_err) <= cfg.distance_alignment_tolerance
- 
         print(f"  angle_err={angle_err:.2f}°  range_err={range_err:.2f} cm  "
               f"angle_ok={angle_ok}  range_ok={range_ok}")
- 
         if angle_ok and range_ok:
             creep.motor_stop()
-            print(f"[square_to_ledge] aligned in {elapsed:.2f}s ✓")
-            return True
- 
-        # correct angular error first and only when we are sure about it do we do the range correction
+            # Final IR check now that we are correctly positioned
+            if box_is_present(creep, cfg):
+                print("[square_to_ledge] IR triggered after sonar aligned — centering")
+                creep.drive_speed_distance(cfg.alignment_drive_speed,
+                                           cfg.target_dist_to_ledge)
+                return True
+            print("[square_to_ledge] sonar aligned but IR not triggered — trying wiggle")
+            break
         if not angle_ok:
-            turn_speed = cfg.alignment_turn_speed * sign(angle_err)
-            # turn by the full angle error as the next iteration will re-measure.
-            creep.turn_speed_angle(turn_speed, abs(angle_err))
- 
-        # correct the range error finally
+            creep.turn_speed_angle(
+                cfg.alignment_turn_speed * sign(angle_err), abs(angle_err)
+            )
         elif not range_ok:
-            # drive forward (positive range_err = too far) or backward.
-            drive_speed = cfg.alignment_drive_speed * sign(range_err)
-            creep.drive_speed_distance(drive_speed, abs(range_err))
- 
-        # small pause to let the robot settle - is this necessary?????
+            creep.drive_speed_distance(
+                cfg.alignment_drive_speed * sign(range_err), abs(range_err)
+            )
         time.sleep(0.1)
+    # ── Phase 3: wiggle fallback ──────────────────────────────────────────────
+    print("[square_to_ledge] phase 3 — wiggle fallback")
+    return scan_for_box_on_ledge(creep, cfg)
 
 
 
 def scan_for_box_on_ledge(
     creep: CreepRobot,
-    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,
+) -> bool:
     """
-    Search for a box on the ledge by wiggling left and right in front of it.
- 
-    The search pattern is:
-        centre check → wiggle right → wiggle left → back to centre
-    repeated up to *cfg.wiggle_retries* times.
- 
-    Returns True as soon as box_is_present() is detected
-    Returns False if the box is never found within all retries
+    Search for a box on the ledge by wiggling left and right.
+    Pattern: centre → right → left (double) → centre, repeated cfg.wiggle_retries times.
+    When the IR sensor triggers, the robot continues moving for cfg.wiggle_center_delay
+    seconds before stopping so the arm centre lands on the box.
     """
-    print(f"[scan_for_box_on_ledge] searching with "
-          f"{cfg.wiggle_retries} retry cycles…")
-
- 
-    # always check the centre position first
+    print(f"[scan_for_box_on_ledge] searching with {cfg.wiggle_retries} retry cycles")
     if box_is_present(creep, cfg):
-        print("[scan_for_box_on_ledge] box found at centre position immediately")
+        print("[scan_for_box_on_ledge] box found at centre immediately")
+        time.sleep(cfg.wiggle_center_delay)
+        creep.motor_stop()
         return True
- 
     for attempt in range(cfg.wiggle_retries):
-        print(f"  [scan attempt {attempt + 1}/{cfg.wiggle_retries}]")
- 
+        print(f"  [attempt {attempt + 1}/{cfg.wiggle_retries}]")
         # WIGGLE RIGHT
-        # We use drive_both to spin in place; drive_both does encoder reset
-        # internally so we check the sensor in a timed loop.
         t0 = time.time()
         creep.drive_both(cfg.wiggle_speed, -cfg.wiggle_speed)
         while time.time() - t0 < cfg.wiggle_duration:
             if box_is_present(creep, cfg):
+                time.sleep(cfg.wiggle_center_delay)   # let arm reach centre
                 creep.motor_stop()
                 print("[scan_for_box_on_ledge] box found during right wiggle")
                 return True
         creep.motor_stop()
- 
-        # WIGGLE LEFT (double duration to cross through centre)
+        # WIGGLE LEFT (double duration to sweep back through centre)
         t0 = time.time()
         creep.drive_both(-cfg.wiggle_speed, cfg.wiggle_speed)
         while time.time() - t0 < cfg.wiggle_duration * 2:
             if box_is_present(creep, cfg):
+                time.sleep(cfg.wiggle_center_delay)   # let arm reach centre
                 creep.motor_stop()
                 print("[scan_for_box_on_ledge] box found during left wiggle")
                 return True
         creep.motor_stop()
- 
         # RETURN TO CENTRE
         t0 = time.time()
         creep.drive_both(cfg.wiggle_speed, -cfg.wiggle_speed)
         while time.time() - t0 < cfg.wiggle_duration:
             if box_is_present(creep, cfg):
+                time.sleep(cfg.wiggle_center_delay)   # let arm reach centre
                 creep.motor_stop()
                 print("[scan_for_box_on_ledge] box found returning to centre")
                 return True
         creep.motor_stop()
- 
-        # ── re-check centre ──────────────────────────────────────────────────
         if box_is_present(creep, cfg):
             print("[scan_for_box_on_ledge] box found at centre after wiggle cycle")
+            time.sleep(cfg.wiggle_center_delay)
+            creep.motor_stop()
             return True
- 
     print("[scan_for_box_on_ledge] box not found after all retries")
     return False
 
@@ -526,6 +552,7 @@ def grip_box(
         creep.VacValve("GRIP")
         creep.Arm_tilt_up()
         return False
+    
 
 def confirm_grip(
     creep: CreepRobot,
@@ -663,21 +690,17 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object, cfg: LedgeConfig = DE
     """
     if not navigate_to_ledge_position(creep, obj, cfg):
         return LedgePickupResult.NAV_FAILED
-    
+    # square_to_ledge now handles camera → sonar → wiggle internally.
+    # Returns True only when the box is found and the arm is centred.
     if not square_to_ledge(creep, cfg):
-        return LedgePickupResult.ALIGNMENT_TIMEOUT
-    
-    if not scan_for_box_on_ledge(creep, cfg):
-        return LedgePickupResult.NO_BOX_FOUND
-    
+        return LedgePickupResult.NO_BOX_FOUND      # ← was ALIGNMENT_TIMEOUT
+    # ← REMOVE the scan_for_box_on_ledge call that was here
     if not grip_box(creep, cfg):
         return LedgePickupResult.GRIP_FAILED
-    
-    if not retract_with_box():
+    if not retract_with_box(creep, cfg):           # ← bug 3 fixed
         return LedgePickupResult.GRIP_LOST_ON_RETRACT
-    
-    retreat_from_ledge()
-    print("Box was successfully collected from ledge and robot was reset.")
+    retreat_from_ledge(creep, cfg)                 # ← bug 4 fixed
+    print("Box successfully collected from ledge.")
     return LedgePickupResult.SUCCESS
 
 
