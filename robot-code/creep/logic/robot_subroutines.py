@@ -653,7 +653,7 @@ def clamp(number: float) -> float:
     return max(min(number, 1), -1)
 
 
-def collect_box_from_ledge(creep: CreepRobot, obj: Object, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> bool:
+def collect_box_from_ledge(creep: CreepRobot, obj: Object, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> LedgePickupResult:
     """
     Master entry-point for all ledge related functions.
 
