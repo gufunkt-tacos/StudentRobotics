@@ -271,64 +271,64 @@ def navigate_to_ledge_position(
     cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
     """
     Drive from the robot's current position to a point directly in front of
-    the ledge, ready for the alignment phase.
-
-    Returns True if both drives completed without timeout, False otherwise.
+    the ledge (d cm along the ledge's outward normal), ready for alignment.
+    Coordinate frame: x = right, y = forward (robot-centric, top-down).
+    obj.h_angle: degrees, 0 = ahead, positive = right.
+    obj.yaw:     degrees, 0 = marker facing robot square-on,
+                 positive = clockwise from marker's outward perspective
+                 (= counterclockwise from robot's view).
+    Returns True if all manoeuvres completed, False if any timed out.
     """
-    print("[navigate_to_ledge_position] computing approach geometry")
-    print(f"  position={obj.position:.1f} cm  h_angle={obj.h_angle:.1f}°  "
-          f"yaw={obj.yaw:.1f}°  target_dist={cfg.target_dist_to_ledge:.1f} cm")
-
-    d = cfg.target_dist_to_ledge
-    r = obj.position
-
-    ledge_normal_angle = obj.h_angle + obj.yaw
-
-    ledge_normal_rad = math.radians(ledge_normal_angle)
-
-    # Cosine rule: distance from robot to the approach point.
-    angle_at_ledge_rad = math.pi - ledge_normal_rad
-    distance_to_move = math.sqrt(
-        d**2 + r**2 - 2 * d * r * math.cos(angle_at_ledge_rad)
+    r   = obj.position            # cm to ledge centre
+    d   = cfg.target_dist_to_ledge
+    h   = math.radians(obj.h_angle)
+    yaw = math.radians(obj.yaw)
+    print(
+        f"[navigate_to_ledge_position] "
+        f"r={r:.1f} cm  h_angle={obj.h_angle:.1f}°  yaw={obj.yaw:.1f}°  "
+        f"target_dist={d:.1f} cm"
     )
 
-    # Sine rule: angle the robot must turn through before driving.
-    sin_arg = clamp(d * math.sin(angle_at_ledge_rad) / distance_to_move)
-    angle_to_move = math.degrees(math.asin(sin_arg))
-
-    # After driving, the remaining turn to face the ledge squarely.
-    # The robot has already rotated by angle_to_move from its original heading,
-    # and the ledge normal sits at ledge_normal_angle in that original frame.
-    final_turn = ledge_normal_angle - angle_to_move
-
-    print(f"  ledge_normal={ledge_normal_angle:.1f}°  "
-          f"drive_angle={angle_to_move:.1f}°  drive_dist={distance_to_move:.1f} cm  "
-          f"final_turn={final_turn:.1f}°")
-
+    creep.Arm_Extend(1)
+    # ── Approach point P in robot Cartesian frame ───────────────────────
+    # P = ledge_centre + d * outward_normal
+    # outward_normal direction = (h + 180° - yaw) clockwise from forward
+    #   => unit vector components:
+    #       nx = sin(h + pi - yaw) = -sin(h - yaw)
+    #       ny = cos(h + pi - yaw) = -cos(h - yaw)
+    Px = r * math.sin(h) - d * math.sin(h - yaw)
+    Py = r * math.cos(h) - d * math.cos(h - yaw)
+    # ── Manoeuvres ──────────────────────────────────────────────────────
+    # 1. Turn to point the robot at P
+    # 2. Drive to P
+    # 3. Turn to face the ledge squarely (inward normal direction = h - yaw)
+    turn_angle  = math.degrees(math.atan2(Px, Py))   # CW from forward
+    drive_dist  = math.sqrt(Px ** 2 + Py ** 2)
+    final_turn  = (obj.h_angle - obj.yaw) - turn_angle
+    print(
+        f"  turn_to_P={turn_angle:.1f}°  drive={drive_dist:.1f} cm  "
+        f"final_turn={final_turn:.1f}°"
+    )
     creep.Doors_close()
     creep.Arm_tilt_up()
-
-    # turn to point
-    if abs(angle_to_move) > 1.0:
-        ok = creep.turn_speed_angle(30 * sign(angle_to_move), abs(angle_to_move))
+    # Step 1 — turn to face the approach point
+    if abs(turn_angle) > 1.0:
+        ok = creep.turn_speed_angle(30 * sign(turn_angle), abs(turn_angle))
         if not ok:
             print("[navigate_to_ledge_position] initial turn timed out")
             return False
-
-    # drive t ledge
-    ok = creep.drive_speed_distance(30, distance_to_move)
-    if not ok:
-        print("[navigate_to_ledge_position] drive timed out")
-        return False
-
-    # single turn to face ledge
-    # square_to_ledge() will handle the fine iterative correction from here.
+    # Step 2 — drive to approach point
+    if drive_dist > 0.5:
+        ok = creep.drive_speed_distance(30, drive_dist)
+        if not ok:
+            print("[navigate_to_ledge_position] drive timed out")
+            return False
+    # Step 3 — turn to face the ledge squarely
     if abs(final_turn) > 1.0:
         ok = creep.turn_speed_angle(30 * sign(final_turn), abs(final_turn))
         if not ok:
             print("[navigate_to_ledge_position] final facing turn timed out")
             return False
-
     print("[navigate_to_ledge_position] complete")
     return True
 

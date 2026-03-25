@@ -1,23 +1,19 @@
 @echo off
 setlocal
-
 set "SOURCE_DIR=%~dp0robot-code"
-
 set "USB_DRIVE=D:\"
-
-
 set "DEST_DIR=%USB_DRIVE%"
-
-
 if not exist "%SOURCE_DIR%" (
     echo ERROR: Robot code folder was not found.
     pause
     exit /b
 )
-
-
-xcopy "%SOURCE_DIR%" "%DEST_DIR%" /E
-
+if not exist "%USB_DRIVE%" (
+    echo ERROR: USB drive not found at %USB_DRIVE% - check the drive letter.
+    pause
+    exit /b
+)
+xcopy "%SOURCE_DIR%" "%DEST_DIR%" /E /Y
 echo Folder copied to USB successfully.
 powershell -command "$driveEject = New-Object -ComObject Shell.Application; $driveEject.Namespace(17).ParseName('D:').InvokeVerb('Eject')"
 echo USB ejected.
