@@ -56,8 +56,52 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
         creep.Doors_wedge()
         creep.drive_speed_distance(40, 60)
 
+
+def get_in_position(creep) -> None:
+    """
+    Final adjustments before collecting box from ledge (uses sonar)
+    """
+    TARGET_DIST = 6   # cm from wall
+    DIST_TOL = 2      # acceptable error (deg)
+    ANGLE_TOL = 2     # cm difference between sensors
+
+    while True:
+        L = creep.left_front_sonar()
+        R = creep.right_front_sonar()
+
+        # distance
+        dist_error = ((L + R) / 2) - TARGET_DIST
+
+        # angle
+        angle_error = (L - R)
+
+        # check if done
+        if abs(dist_error) < DIST_TOL and abs(angle_error) < ANGLE_TOL:
+            creep.motor_stop()
+            break
+
+        # might need tuning
+        Kd = 0.8   # distance gain
+        Ka = 0.5   # angle gain
+
+        speed = Kd * dist_error
+        turn  = Ka * angle_error
+
+        # convert to motor speeds
+        speed1 = speed + turn
+        speed2 = speed - turn
+
+        # --- Clamp speeds ---
+        speed1 = max(min(speed1, 10), -10)
+        speed2 = max(min(speed2, 10), -10)
+
+        creep.drive_both(int(speed1), int(speed2))
+    
+
 def collect_ledge_token(creep: CreepRobot):
 #this is copied from keith; idk how it works AT ALL
+    
+    get_in_position(creep)
 
     height = creep.sucker_height()
     print("height = ",height, " cms")
@@ -115,7 +159,7 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     #close door so we can get closer
     creep.Doors_close()
     #reverse away from platform - why do we do this?
-    creep.drive_speed_distance(-16,70)
+    # creep.drive_speed_distance(-16,70)
 
     closest_token = find_closest_token(creep, type, 0)
     closest_token_dist = closest_token.position
@@ -132,14 +176,14 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     
     creep.turn_speed_angle(5*sign(new_token_angle), abs(new_token_angle)/2)
 
-    creep.drive_speed_distance_objchk(24,120,6)
+    creep.drive_speed_distance_objchk(24,120,25)
     creep.motor_stop
     collect_ledge_token(creep)
 
     # add clearance for doors
     creep.drive_speed_distance(-16, 10)
     creep.Doors_wedge
-    
+
     creep.drive_speed_distance_objchk(-16,50,20)
     creep.turn_speed_angle(-16*sign(angle_to_ledge),abs(angle_to_ledge))
 

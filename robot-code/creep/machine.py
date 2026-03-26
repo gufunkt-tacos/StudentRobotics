@@ -31,6 +31,7 @@ import math
 import numpy as np
 from math import cos, sin, pi, sqrt, atan2
 import serial.tools.list_ports
+import statistics
 
 # These coordinates are correct for the 2025-2026 game. List starts at marker '0' to marker 19
 MARKER_COORDS = \
@@ -587,37 +588,91 @@ class CreepRobot():
     # Currently set to read value for target 1. Other targets can be enabled
     # returns actual distance recorded. Subtract front_sonar_offset to get distance to front of robot
 
-    def left_front_sonar(self): # base address of E0 (write), E1 (read)
-        # trigger ranging
-        self.ser.write( b"\x55\xE0\x00\x01\x51" )
-        n = self.ser.read(1)  #get acknowledge
-        time.sleep(.1)
-        # set I2C device to read and read two bytes from register 2/3 (target 1)
-        self.ser.write( b"\x55\xE1\x02\x02" ) # 2 bytes, register auto-increments
-        n = (self.ser.read(2))
-        decoded_n = n.decode()
-        #print ("n undecoded = ",n)
-        targ1_hi = (n[0])
-        targ1_lo = (n[1])
-        left_front_sonar_range = targ1_lo + (targ1_hi << 8)
-        print ("left front sonar range  = ", left_front_sonar_range)
-        return left_front_sonar_range
+    def speedofsound(self, temp:float = 18) -> float:
+        """
+        Returns the speed of sound by using external temperature
+        """
+        return 331.3 * sqrt( 1 + ( temp / 273.15 ))
 
-    def right_front_sonar(self): # base address of E2 (write), E3 (read)
-        # trigger ranging
-        self.ser.write( b"\x55\xE2\x00\x01\x51" )
-        n = self.ser.read(1)  #get acknowledge
-        time.sleep(.1)
-        # set I2C device to read and read two bytes from register 2/3 (target 1)
-        self.ser.write( b"\x55\xE3\x02\x02" ) # 2 bytes, register auto-increments
-        n = (self.ser.read(2))
-        decoded_n = n.decode()
-        #print ("n undecoded = ",n)
-        targ1_hi = (n[0])
-        targ1_lo = (n[1])
-        right_front_sonar_range = targ1_lo + (targ1_hi << 8)
-        print ("right front sonar range  = ", right_front_sonar_range)
-        return right_front_sonar_range
+    
+    def left_front_sonar(self, samples=1) -> float:
+        """
+        Returns distance in cm from left sensor. 
+        
+        For more accuracy several samples can be taken which will be averaged together.
+        """
+
+        readings = []
+
+        for _ in range(samples):
+            # trigger in cm
+            self.ser.write(b"\x55\xe0\x00\x01\x52")
+            self.ser.read(1)  # acknowledge
+
+            # wait until measurement complete
+            while True:
+                self.ser.write(b"\x55\xe1\x00\x01")  # read register 0
+                status = self.ser.read(1)
+                if status != b'\xff':          # 0xFF means busy
+                    break
+                time.sleep(0.01)
+
+            # Read range registers 2 & 3
+            self.ser.write(b"\x55\xe1\x02\x02")
+            n = self.ser.read(2)
+
+            targ1_hi = n[0]
+            targ1_lo = n[1]
+            distance = (targ1_lo + (targ1_hi << 8))* self.speedofsound() / 10000 / 2
+
+            readings.append(distance)
+
+            time.sleep(0.065)  # minimum safe delay between pings
+
+        distance = statistics.mean(readings)
+        # print("Right sonar: " + str(distance))
+        # maybe use the median? might have better noise rejection
+        return distance
+
+    def right_front_sonar(self, samples=1) -> float:
+        """
+        Returns distance in cm from right sensor. 
+        
+        For more accuracy several samples can be taken which will be averaged together.
+        """
+
+
+        readings = []
+
+        for _ in range(samples):
+            # trigger in cm
+            self.ser.write(b"\x55\xe2\x00\x01\x52")
+            self.ser.read(1)  # acknowledge
+
+            # wait until measurement complete
+            while True:
+                self.ser.write(b"\x55\xe3\x00\x01")  # read register 0
+                status = self.ser.read(1)
+                if status != b'\xff':          # 0xFF means busy
+                    break
+                time.sleep(0.01)
+
+            # Read range registers 2 & 3
+            self.ser.write(b"\x55\xe3\x02\x02")
+            n = self.ser.read(2)
+
+            targ1_hi = n[0]
+            targ1_lo = n[1]
+            distance = (targ1_lo + (targ1_hi << 8))* self.speedofsound() / 10000 / 2
+
+            readings.append(distance)
+
+            time.sleep(0.065)  # minimum safe delay between pings
+
+        distance = statistics.mean(readings)
+        # print("Right sonar: " + str(distance))
+        # maybe use the median? might have better noise rejection
+        return distance
 
     def rear_sonar(self): # base address of F0 (write), F1 (read)
         # trigger ranging
@@ -627,7 +682,7 @@ class CreepRobot():
         # set I2C device to read and read two bytes from register 2/3 (target 1)
         self.ser.write( b"\x55\xF1\x02\x02" ) # 2 bytes, register auto-increments
         n = self.ser.read(2)
-        decoded_n = n.decode()
+        # decoded_n = n.decode() # this code wasnt be used by anything and caused it to crash
         #print ("n undecoded = ",n)
         targ1_hi = (n[0])
         targ1_lo = (n[1])
@@ -1062,7 +1117,7 @@ class CreepRobot():
         self.robot.servo_board.servos[3].set_duty_limits(500,2500) # Set up servo parameters
 
         if (center_components):
-            self.camera_pan(0)   # centre camera
+            self.camera_pan(90)   # rotate camera to fit in 50 cm
             self.LH_door(-93)    # close LH door
             self.RH_door(90)     # close RH door
             #Arm_tilt("UP")  # Arm at max tilt
@@ -1070,16 +1125,19 @@ class CreepRobot():
             self.Arm_Retract(1)  # Retract arm, full speed
             self.VacValve("GRIP") # Allow suction (valve unpowered)
             self.VacPump(0)      # Vac pump stopped
-            print("doors closed,camera centred,arm raised/retracted, Vac & Valve 'OFF'")
+            print("doors closed,camera turned,arm raised/retracted, Vac & Valve 'OFF'")
 
         robot_mode = DEV
-        #my_corner = robot.zone #set corner in robot set-up
-        #robot_mode = robot.mode # returns DEV or COMP (no parentheses)
+
+        # THIS SHOULD BE CHANGED DURING COMPETITION
+        # my_corner = self.robot.zone #set corner in robot set-up
+        # robot_mode = self.robot.mode # returns DEV or COMP (no parentheses)
+
+
         #             MUST CHECK THESE LINES FOR COMPETTION MODE
         #  FOR TEST PURPOSES ONLY +++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # This code is for safety but may be removed
-        #my_corner = robot.zone
-        #robot_mode = robot.mode
+
         #my_lab = []
         if robot_mode == DEV:
             my_mode = "DEV"
@@ -1125,4 +1183,5 @@ class CreepRobot():
         print("")
         self.startup_jingle()
         self.robot.wait_start()
+
 
