@@ -14,7 +14,7 @@ def main():
         print("Failed to find token within time limit")
         return
     
-    collect_box_from_ledge(creep, obj)
+    square_to_ledge(creep, obj)
 
 if __name__ == "__main__":
     main()
