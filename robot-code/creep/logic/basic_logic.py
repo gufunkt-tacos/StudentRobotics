@@ -16,12 +16,15 @@ def pick_up_box(creep: CreepRobot) -> bool:
     creep.VacValve("GRIP")
     creep.VacPump(1)
     creep.Arm_tilt_down()
-    time.sleep(1) # Wait for suction to take effect
 
     # Move arm back to initial position after picking up cube
-    cutoff_time = time.time() + 3 # Set a cutoff time to prevent infinite loop
-    while not creep.sucker_gripping() and time.time() < cutoff_time:
+    cutoff_time = time.time() + 4 # Set a cutoff time to prevent infinite loop
+    success = False
+    while time.time() < cutoff_time:
         time.sleep(0.1) # Wait until the cube is securely gripped
+        if creep.sucker_gripping():
+            success = True
+            break
     
     print("Gripping cube:", "Success" if success else "Failed")
     if not success:
