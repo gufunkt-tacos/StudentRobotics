@@ -317,6 +317,8 @@ def navigate_to_ledge_position(
 
 def get_pos_with_sonar(creep: CreepRobot,
     cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG):
+    in_position = True
+    print("USING SONAR")
     L = creep.left_front_sonar(cfg.sonar_samples) - cfg.target_dist_to_ledge
     R = creep.left_front_sonar(cfg.sonar_samples) - cfg.target_dist_to_ledge
     speed1 = speed2 = 0
@@ -398,6 +400,7 @@ def square_to_ledge(
             speed2 = data_from_sonar[1]
 
         else:
+            print("USING CAMERA")
             turn_angle = current.h_angle
             drive_dist = current.position - cfg.target_dist_to_ledge
 
