@@ -22,7 +22,6 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
         closest_token.h_angle -= int(angle_offset)
 
         return closest_token
-    
     else:
         return None
 
