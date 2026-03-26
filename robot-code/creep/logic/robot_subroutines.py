@@ -186,7 +186,7 @@ class LedgeConfig:
     # APPROACH/ALIGNMENT
  
     # How far from the ledge (measured by the front sonars) we want to stop
-    target_dist_to_ledge: float = 5.0
+    target_dist_to_ledge: float = 15
     
     initial_dist_to_ledge: float = 1000
 
@@ -243,7 +243,7 @@ class LedgeConfig:
     wiggle_speed: int = 15
  
     # Duration of each wiggle half-swing.
-    wiggle_duration: float = 0.5
+    wiggle_duration: float = 0.1
  
     # Number of full left-right-centre cycles before giving up the box search
     wiggle_retries: int = 3
@@ -321,7 +321,7 @@ def get_pos_with_sonar(creep: CreepRobot,
     in_position = True
     print("USING SONAR")
     L = creep.left_front_sonar(cfg.sonar_samples) - cfg.target_dist_to_ledge
-    R = creep.left_front_sonar(cfg.sonar_samples) - cfg.target_dist_to_ledge
+    R = creep.right_front_sonar(cfg.sonar_samples) - cfg.target_dist_to_ledge
     speed1 = speed2 = 0
     if abs(L) >= cfg.distance_alignment_tolerance:
         speed1 = cfg.alignment_drive_speed * sign(L)
@@ -365,22 +365,24 @@ def square_to_ledge(
     R = creep.right_front_sonar(cfg.sonar_samples)
     spread = L - R
 
-    a = math.atan2(spread, cfg.sonar_separation)
+    a = math.degrees(math.atan2(spread, cfg.sonar_separation))
 
     r = cfg.target_distance_in_front_of_box
     d = current.position
-    h = math.degrees(current.h_angle)
+    h = current.h_angle
 
-    distance_to_move = d**2 + r**2 - 2 * d * r * math.cos(a - h)
+    distance_to_move = math.sqrt(d**2 + r**2 - 2 * d * r * math.cos(math.radians(a - h)))
 
-    angle_to_move = math.sin(a - h) * r / distance_to_move
+    angle_to_move = math.degrees(math.asin(math.sin(math.radians(a - h)) * r / distance_to_move))
+    print(angle_to_move)
 
-    creep.turn_speed_angle(15, angle_to_move)
+    creep.turn_speed_angle(15 * sign(angle_to_move), abs(angle_to_move))
     creep.drive_speed_distance(30 , distance_to_move)
 
-    final_turn_angle = 180 - (a - h) - angle_to_move
+    final_turn_angle = (a - h) - angle_to_move
 
-    creep.turn_speed_angle(15, final_turn_angle)
+    creep.turn_speed_angle(15 * sign(angle_to_move), abs(final_turn_angle))
+    print(final_turn_angle)
 
 
     markers = creep.find_objects(obj.type)
@@ -390,6 +392,8 @@ def square_to_ledge(
         for marker in markers:
             if marker.id == obj.id:
                 current = marker
+    
+    in_position = False
 
     while not in_position:
         in_position = True
@@ -682,7 +686,7 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object | None, cfg: LedgeConf
         return LedgePickupResult.NAV_FAILED
     # square_to_ledge now handles camera → sonar → wiggle internally.
     # Returns True only when the box is found and the arm is centred.
-    if not square_to_ledge(creep, cfg):
+    if not square_to_ledge(creep, obj, cfg):
         return LedgePickupResult.NO_BOX_FOUND      # ← was ALIGNMENT_TIMEOUT
     # ← REMOVE the scan_for_box_on_ledge call that was here
     if not pick_up_box(creep):
