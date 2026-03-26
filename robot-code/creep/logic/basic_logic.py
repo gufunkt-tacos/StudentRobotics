@@ -23,20 +23,21 @@ def pick_up_box(creep: CreepRobot) -> bool:
     while not creep.sucker_gripping() and time.time() < cutoff_time:
         time.sleep(0.1) # Wait until the cube is securely gripped
     
-    if time.time() >= cutoff_time:
-        # Asynchronously return the arm and stop the pump
+    print("Gripping cube:", "Success" if success else "Failed")
+    if not success:
+        # Asynchronously return lift arm and turn off pump
         def async_cleanup(creep: CreepRobot):
-            creep.Arm_Retract(1)
-            time.sleep(7)
             creep.VacPump(0)
+            creep.Arm_tilt_up()
         
         cleanup_thread = Thread(target=async_cleanup, args=(creep,))
         cleanup_thread.start()
         return False # Failed to grip cube within time limit
     
     def async_cleanup(creep: CreepRobot):
+        # Return cube to robot
         creep.Arm_tilt_up()
-
+        time.sleep(4)
         creep.Arm_Retract(1)
         time.sleep(7)
         creep.VacPump(0)
@@ -44,12 +45,14 @@ def pick_up_box(creep: CreepRobot) -> bool:
         time.sleep(0.1)
         creep.VacValve("GRIP")
 
+        pull_cube_into_robot(creep)
+
     cleanup_thread = Thread(target=async_cleanup, args=(creep,))
     cleanup_thread.start()
 
     return True
 
-async def pull_cube_into_robot(creep: CreepRobot):
+def pull_cube_into_robot(creep: CreepRobot):
     # Pull cube into robot - can do this while moving forward to save time
     creep.Arm_tilt_up()
     creep.Arm_Extend(1)

@@ -681,7 +681,7 @@ def clamp(number: float) -> float:
     return max(min(number, 1), -1)
 
 
-def collect_box_from_ledge(creep: CreepRobot, obj: Object, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> LedgePickupResult:
+def collect_box_from_ledge(creep: CreepRobot, obj: Object | None, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> LedgePickupResult:
     """
     Master entry-point for all ledge related functions.
 
@@ -689,12 +689,12 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object, cfg: LedgeConfig = DE
 
     The robot will then retreat *cfg.retreat_distance* from the centre pillion, ready for further collection attempts.
     """
-    # if not navigate_to_ledge_position(creep, obj, cfg):
-    #     return LedgePickupResult.NAV_FAILED
+    if not navigate_to_ledge_position(creep, obj, cfg):
+        return LedgePickupResult.NAV_FAILED
     # square_to_ledge now handles camera → sonar → wiggle internally.
     # Returns True only when the box is found and the arm is centred.
-    # if not square_to_ledge(creep, cfg):
-    #     return LedgePickupResult.NO_BOX_FOUND      # ← was ALIGNMENT_TIMEOUT
+    if not square_to_ledge(creep, cfg):
+        return LedgePickupResult.NO_BOX_FOUND      # ← was ALIGNMENT_TIMEOUT
     # ← REMOVE the scan_for_box_on_ledge call that was here
     if not pick_up_box(creep):
         return LedgePickupResult.GRIP_FAILED
