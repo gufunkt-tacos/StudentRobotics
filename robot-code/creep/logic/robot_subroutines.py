@@ -319,32 +319,24 @@ def navigate_to_ledge_position(
 def square_to_ledge(
     creep: CreepRobot,
     obj: Object,
-    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG
-) -> bool:
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> bool:
     """
-    Three-phase approach to the ledge.
-    Phase 1 — Camera:
-        Re-scans the token marker each step, drives toward the approach point
-        in STEP-sized increments until the camera loses sight of the marker.
-    Phase 2 — Sonar:
-        Uses both front sonars to square up and close the final distance gap,
-        exactly as before.
-    Throughout phases 1 and 2 the IR sensor is polled after every movement.
-    If it detects the box the robot advances CENTER_ADVANCE_CM to centre the
-    arm and returns True immediately.
-    Phase 3 — Wiggle fallback:
-        If the IR sensor never triggered, hands off to scan_for_box_on_ledge.
     """
     creep.Doors_close()
     print("[square_to_ledge] phase 1 — camera-guided approach")
     markers = creep.find_objects(obj.type)
-
+    current = None
+    
     if markers is None:
         return False
-    
+
     for marker in markers:
         if marker.id == obj.id:
             current = marker
+
+    if current is None:
+        return False
+            
 
     L = creep.left_front_sonar(cfg.sonar_samples)
     R = creep.right_front_sonar(cfg.sonar_samples)
@@ -352,23 +344,44 @@ def square_to_ledge(
 
     a = math.atan2(spread, cfg.sonar_separation)
 
-    h = current.h_angle
+    r = cfg.target_distance_in_front_of_box
+    d = current.position
+    h = math.degrees(current.h_angle)
 
-    angle_to_turn  = a - h
-    
-    
+    distance_to_move = d**2 + r**2 - 2 * d * r * math.cos(a - h)
 
+    angle_to_move = math.sin(a - h) * r / distance_to_move
+
+    creep.turn_speed_angle(15, angle_to_move)
+    creep.drive_speed_distance(30 , distance_to_move)
+
+    final_turn_angle = 180 - (a - h) - angle_to_move
+
+    creep.turn_speed_angle(15, final_turn_angle)
+
+
+    markers = creep.find_objects(obj.type)
+    current = None
+
+    if markers is not None:
+        for marker in markers:
+            if marker.id == obj.id:
+                current = marker
 
     while current is not None:
-        turn_angle = math.degrees(math.atan2(Px, Py))
-        drive_dist = current.position - 
-        if abs(turn_angle) > 2.0:
+
+        turn_angle = current.h_angle
+        drive_dist = current.position - cfg.target_dist_to_ledge
+        if abs(turn_angle) > 1.0:
             creep.turn_speed_angle(
                 cfg.alignment_turn_speed * sign(turn_angle), abs(turn_angle)
             )
         step = min(drive_dist, _CAM_STEP_CM)
         if step > 0.5:
             creep.drive_speed_distance(cfg.alignment_drive_speed, step)
+        else:
+            
+
         # IR check after every movement
         if box_is_present(creep, cfg):
             print("[square_to_ledge] IR triggered in camera phase — centering")
