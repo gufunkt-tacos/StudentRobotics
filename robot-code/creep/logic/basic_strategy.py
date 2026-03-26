@@ -10,7 +10,7 @@ def strategy_base(creep: CreepRobot):
     go_to_closest_token(creep, ObjectType.ACID, find_closest_token(creep, ObjectType.ACID, 0), False) # False prevents the doors from opening
 
     #get the one on the ledge
-    get_ledge_token(creep,ObjectType.BASE,90)
+    get_ledge_token(creep, ObjectType.BASE,90)
 
     #if we see the next blue box, get it. otherwise, go to where it would be
     floor_token_seen = get_token(creep, ObjectType.BASE, "floor")

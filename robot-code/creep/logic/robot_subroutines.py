@@ -45,7 +45,7 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
     
     creep.turn_speed_angle(5*sign(token_angle), (abs(token_angle)/scaling)/2)
 
-    creep.drive_speed_distance(40, closest_token_dist)
+    creep.drive_speed_distance(40, closest_token_dist - 20)
     
     if open_doors:
         creep.Doors_open()
@@ -112,7 +112,9 @@ def collect_ledge_token(creep: CreepRobot):
 def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     #turn towards platform
     creep.turn_speed_angle(16*sign(angle_to_ledge),abs(angle_to_ledge))
-    #reverse away from platform
+    #close door so we can get closer
+    creep.Doors_close()
+    #reverse away from platform - why do we do this?
     creep.drive_speed_distance(-16,70)
 
     closest_token = find_closest_token(creep, type, 0)
@@ -134,6 +136,10 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     creep.motor_stop
     collect_ledge_token(creep)
 
+    # add clearance for doors
+    creep.drive_speed_distance(-16, 10)
+    creep.Doors_wedge
+    
     creep.drive_speed_distance_objchk(-16,50,20)
     creep.turn_speed_angle(-16*sign(angle_to_ledge),abs(angle_to_ledge))
 
