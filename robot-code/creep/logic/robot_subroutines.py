@@ -22,6 +22,7 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
         closest_token.h_angle -= int(angle_offset)
 
         return closest_token
+    
     else:
         return None
 
@@ -57,13 +58,14 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
         creep.drive_speed_distance(40, 60)
 
 
-def get_in_position(creep) -> None:
+def get_in_position(creep: CreepRobot) -> None:
     """
     Final adjustments before collecting box from ledge (uses sonar)
     """
     TARGET_DIST = 6   # cm from wall
     DIST_TOL = 2      # acceptable error (deg)
     ANGLE_TOL = 2     # cm difference between sensors
+    SONAR_SEPARATION = 50
 
     while True:
         L = creep.left_front_sonar()
@@ -73,7 +75,16 @@ def get_in_position(creep) -> None:
         dist_error = ((L + R) / 2) - TARGET_DIST
 
         # angle
-        angle_error = (L - R)
+        markers = creep.find_objects(ObjectType.IGNORE)
+        current = None
+        if markers is not None:
+            current = min(markers, key=lambda m: m.position)
+
+        angle_error = (
+            SONAR_SEPARATION * math.tan(math.radians(current.h_angle))
+            if current is not None
+            else (L - R)
+        )
 
         # check if done
         if abs(dist_error) < DIST_TOL and abs(angle_error) < ANGLE_TOL:
@@ -179,12 +190,12 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     creep.turn_speed_angle(5*sign(new_token_angle), abs(new_token_angle)/2)
 
     creep.drive_speed_distance_objchk(24,120,25)
-    creep.motor_stop
+    creep.motor_stop()
     collect_ledge_token(creep)
 
     # add clearance for doors
     creep.drive_speed_distance(-16, 10)
-    creep.Doors_wedge
+    creep.Doors_wedge()
 
     creep.drive_speed_distance_objchk(-16,50,20)
     creep.turn_speed_angle(-16*sign(angle_to_ledge),abs(angle_to_ledge))
@@ -238,6 +249,63 @@ def next_arena_token(start: int, step: int, direction: int) -> int:
         token+=20
     return token
     
+def get_normal_to_token(creep: CreepRobot, obj: Object, distance_away: float) -> tuple[float, float]:
+    """
+    This function returns the position and horizontal angle a set distance away from the token.
+    
+    Args:
+        creep: CreepRobot instance
+        obj: Object to calculate normal from
+        distance_away: Distance to maintain from the object
+        
+    Returns:
+        tupl[float, float]: (distance_to_move, angle_to_move)
+    """
+    r = distance_away 
+    d = obj.position
+    y = obj.yaw
+    h = obj.h_angle
+
+    # apply cosine rule to get distance
+    distance_to_move = math.sqrt(d**2 + r**2 - 2 * d * r * math.cos(math.radians(y)))
+
+    # apply sine rule to get angle (signed)
+    angle_to_move = math.degrees(math.asin(math.sin(math.radians(y)) * r / distance_to_move)) + h
+
+    return (distance_to_move, angle_to_move)
+
+def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float) -> tuple[float, float]:
+    """
+    This function returns the position and horizontal angle a set distance away from the ledge.
+    Note that this is not accurate as it uses the sonars.
+    
+    Args:
+        creep: CreepRobot instance
+        obj: Object to calculate normal from
+        distance_away: Distance to maintain from the object
+        
+    Returns:
+        tupl[float, float]: (distance_to_move, angle_to_move)
+    """
+    SONAR_SEPERATION = 50
+    
+    L = creep.left_front_sonar()
+    R = creep.right_front_sonar()
+    spread = L - R
+
+    r = distance_away 
+    d = obj.position
+    y = math.degrees(math.atan2(spread, SONAR_SEPERATION))
+    h = obj.h_angle
+
+    # apply cosine rule to get distance
+    distance_to_move = math.sqrt(d**2 + r**2 - 2 * d * r * math.cos(math.radians(h - y)))
+
+    # apply sine rule to get angle (signed)
+    angle_to_move = h - math.degrees(math.asin(math.sin(math.radians(y)) * r / distance_to_move))
+
+    return (distance_to_move, angle_to_move)
+
 
 
 def go_home(creep: CreepRobot):

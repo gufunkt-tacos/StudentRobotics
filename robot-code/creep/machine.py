@@ -67,11 +67,14 @@ class ObjectType(Flag):
     IGNORE = auto()
 
 class Object:
-    def __init__(self, id: int, position: float, h_angle: int, v_angle: int):
+    def __init__(self, id: int, position: float, h_angle: float, v_angle: float, yaw: float, pitch: float, roll: float):
         self.id: int = id
         self.position: float = position
-        self.h_angle: int = h_angle
-        self.v_angle: int = v_angle
+        self.h_angle: float = h_angle
+        self.v_angle: float = v_angle
+        self.yaw: float = yaw 
+        self.pitch: float = pitch 
+        self.roll: float = roll
         self.type: ObjectType = get_type_from_id(id)
 
     def __repr__(self) -> str:
@@ -903,18 +906,22 @@ class CreepRobot():
         time.sleep(self.rseewaittime)
 
         for marker in markers:
-            robot_distance = round(marker.position.distance/10,2)
+            robot_distance = marker.position.distance/10
             if ((robot_distance ** 2 ) - ((camera_vertical_height -0) ** 2)) <= 0:
                 robot_distance = 1000 
-            robot_distance_corrected = round(math.sqrt((robot_distance ** 2) - ((camera_vertical_height - 0) ** 2)) - camera_horizontal_offset,0)
+            robot_distance_corrected = math.sqrt((robot_distance ** 2) - ((camera_vertical_height - 0) ** 2)) - camera_horizontal_offset
             
-            h_uncorrected_robot_angle = round(math.degrees(marker.position.horizontal_angle))
+            h_uncorrected_robot_angle = math.degrees(marker.position.horizontal_angle)
             h_robot_angle = h_uncorrected_robot_angle + angle_correction
 
-            v_uncorrected_robot_angle = round(math.degrees(marker.position.vertical_angle))
+            v_uncorrected_robot_angle = math.degrees(marker.position.vertical_angle)
             v_robot_angle = v_uncorrected_robot_angle + angle_correction
+   
+            yaw = math.degrees(marker.orientation.yaw)
+            pitch = math.degrees(marker.orientation.pitch)
+            roll = math.degrees(marker.orientation.roll)
 
-            objects.append(Object(marker.id, robot_distance_corrected, h_robot_angle, v_robot_angle)) 
+            objects.append(Object(marker.id, robot_distance_corrected, h_robot_angle, v_robot_angle, yaw, pitch, roll)) 
 
         if len(objects) == 0:
             return None
