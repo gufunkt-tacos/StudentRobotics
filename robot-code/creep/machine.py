@@ -1057,3 +1057,11 @@ class CreepRobot():
         print("")
         self.startup_jingle()
         self.robot.wait_start()
+
+        self.go_home_time = 90 # time to start going home in seconds (1.5 mins = 90 secs)
+
+    def can_continue(self):
+        if (time.time() - self.time_started_game) < self.go_home_time:
+            return True
+        else:
+            return False
