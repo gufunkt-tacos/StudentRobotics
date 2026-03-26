@@ -190,6 +190,8 @@ class LedgeConfig:
     initial_dist_to_ledge: float = 1000
 
     target_distance_in_front_of_box: float = 25
+
+    cam_step_distance = 5
  
     # Both sonars must agree to within this many cm before we call ourselves square to the ledge
     distance_alignment_tolerance: float = 5.0
@@ -313,7 +315,25 @@ def navigate_to_ledge_position(
     print("[navigate_to_ledge_position] complete")
     return True
 
+def get_pos_with_sonar(creep: CreepRobot,
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG):
+    L = creep.left_front_sonar(cfg.sonar_samples) - cfg.target_dist_to_ledge
+    R = creep.left_front_sonar(cfg.sonar_samples) - cfg.target_dist_to_ledge
+    speed1 = speed2 = 0
+    if abs(L) >= cfg.distance_alignment_tolerance:
+        speed1 = cfg.alignment_drive_speed * sign(L)
+        in_position = False
+    if abs(R) >= cfg.distance_alignment_tolerance:
+        speed2 = cfg.alignment_drive_speed * sign(R)
+        in_position = False
+    
+    turn_angle = math.atan2(L - R, cfg.sonar_separation)
+    if abs(turn_angle) >= cfg.angle_alignment_tolerance:
+        speed1 += turn_angle * 0.5
+        speed2 -= turn_angle * 0.5
+        in_position = False
 
+    return (speed1, speed2, in_position)
 
 
 def square_to_ledge(
@@ -368,19 +388,34 @@ def square_to_ledge(
             if marker.id == obj.id:
                 current = marker
 
-    while current is not None:
+    while not in_position:
+        in_position = True
 
-        turn_angle = current.h_angle
-        drive_dist = current.position - cfg.target_dist_to_ledge
-        if abs(turn_angle) > 1.0:
-            creep.turn_speed_angle(
-                cfg.alignment_turn_speed * sign(turn_angle), abs(turn_angle)
-            )
-        step = min(drive_dist, _CAM_STEP_CM)
-        if step > 0.5:
-            creep.drive_speed_distance(cfg.alignment_drive_speed, step)
+        if current is None:
+            data_from_sonar = get_pos_with_sonar(creep, cfg)
+            in_position = data_from_sonar[2]
+            speed1 = data_from_sonar[0]
+            speed2 = data_from_sonar[1]
+
         else:
+            turn_angle = current.h_angle
+            drive_dist = current.position - cfg.target_dist_to_ledge
+
+            if abs(drive_dist) >= cfg.distance_alignment_tolerance:
+                speed1 = speed2 = cfg.alignment_drive_speed * sign(drive_dist)
+                in_position = False
+            else:
+                speed1 = speed2 = 0
             
+
+            if abs(turn_angle) >= cfg.angle_alignment_tolerance:
+                speed1 += turn_angle * 0.5
+                speed2 -= turn_angle * 0.5
+                in_position = False
+
+
+
+        creep.drive_both(round(speed1), round(speed2))
 
         # IR check after every movement
         if box_is_present(creep, cfg):
@@ -388,64 +423,16 @@ def square_to_ledge(
             creep.drive_speed_distance(cfg.alignment_drive_speed,
                                        cfg.target_dist_to_ledge)
             return True
-        markers = creep.find_objects(token_type)
-        current = min(markers, key=lambda m: m.position) if markers else None
-    print("[square_to_ledge] marker lost — switching to sonar phase")
-    # ── Phase 2: sonar-guided alignment ──────────────────────────────────────
-    print(f"[square_to_ledge] phase 2 — sonar  target={cfg.target_dist_to_ledge} cm  "
-          f"tol=±{cfg.distance_alignment_tolerance} cm")
-    t_start   = time.time()
-    iteration = 0
-    while True:
-        iteration += 1
-        elapsed = time.time() - t_start
-        if elapsed > cfg.alignment_timeout:
-            print(f"[square_to_ledge] sonar phase timed out after {elapsed:.1f}s")
-            creep.motor_stop()
-            break   # fall through to wiggle
-        # IR check at the start of every sonar iteration
-        if box_is_present(creep, cfg):
-            print("[square_to_ledge] IR triggered in sonar phase — centering")
-            creep.motor_stop()
-            creep.drive_speed_distance(cfg.alignment_drive_speed,
-                                       cfg.target_dist_to_ledge)
-            return True
-        left_dist  = creep.left_front_sonar(samples=cfg.sonar_samples)
-        right_dist = creep.right_front_sonar(samples=cfg.sonar_samples)
-        print(f"  [sonar iter {iteration}] L={left_dist:.1f}  R={right_dist:.1f}  "
-              f"elapsed={elapsed:.1f}s")
-        if abs(left_dist - right_dist) > cfg.sonar_separation:
-            print(f"[square_to_ledge] sonar spread too large "
-                  f"({abs(left_dist - right_dist):.1f} cm) — stopping")
-            creep.motor_stop()
-            break
-        sin_arg   = clamp((left_dist - right_dist) / cfg.sonar_separation)
-        angle_err = math.degrees(math.asin(sin_arg))
-        mean_dist = mean([left_dist, right_dist])
-        range_err = mean_dist - cfg.target_dist_to_ledge
-        angle_ok = abs(angle_err) <= cfg.angle_alignment_tolerance
-        range_ok = abs(range_err) <= cfg.distance_alignment_tolerance
-        print(f"  angle_err={angle_err:.2f}°  range_err={range_err:.2f} cm  "
-              f"angle_ok={angle_ok}  range_ok={range_ok}")
-        if angle_ok and range_ok:
-            creep.motor_stop()
-            # Final IR check now that we are correctly positioned
-            if box_is_present(creep, cfg):
-                print("[square_to_ledge] IR triggered after sonar aligned — centering")
-                creep.drive_speed_distance(cfg.alignment_drive_speed,
-                                           cfg.target_dist_to_ledge)
-                return True
-            print("[square_to_ledge] sonar aligned but IR not triggered — trying wiggle")
-            break
-        if not angle_ok:
-            creep.turn_speed_angle(
-                cfg.alignment_turn_speed * sign(angle_err), abs(angle_err)
-            )
-        elif not range_ok:
-            creep.drive_speed_distance(
-                cfg.alignment_drive_speed * sign(range_err), abs(range_err)
-            )
-        time.sleep(0.1)
+        
+        
+        markers = creep.find_objects(obj.type)
+        current = None
+
+        if markers is not None:
+            for marker in markers:
+                if marker.id == obj.id:
+                    current = marker
+
     # ── Phase 3: wiggle fallback ──────────────────────────────────────────────
     print("[square_to_ledge] phase 3 — wiggle fallback")
     return scan_for_box_on_ledge(creep, cfg)
@@ -454,8 +441,7 @@ def square_to_ledge(
 
 def scan_for_box_on_ledge(
     creep: CreepRobot,
-    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,
-) -> bool:
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
     """
     Search for a box on the ledge by wiggling left and right.
     Pattern: centre → right → left (double) → centre, repeated cfg.wiggle_retries times.
