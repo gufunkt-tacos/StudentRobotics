@@ -630,7 +630,7 @@ class CreepRobot():
             time.sleep(0.065)  # minimum safe delay between pings
 
         distance = statistics.mean(readings)
-        # print("Right sonar: " + str(distance))
+        print("Left sonar: " + str(distance))
         # maybe use the median? might have better noise rejection
         return distance
 
@@ -670,25 +670,51 @@ class CreepRobot():
             time.sleep(0.065)  # minimum safe delay between pings
 
         distance = statistics.mean(readings)
-        # print("Right sonar: " + str(distance))
+        print("Right sonar: " + str(distance))
         # maybe use the median? might have better noise rejection
         return distance
 
-    def rear_sonar(self): # base address of F0 (write), F1 (read)
-        # trigger ranging
-        self.ser.write( b"\x55\xF0\x00\x01\x51" )
-        n = self.ser.read(1)  #get acknowledge
-        time.sleep(.1)
-        # set I2C device to read and read two bytes from register 2/3 (target 1)
-        self.ser.write( b"\x55\xF1\x02\x02" ) # 2 bytes, register auto-increments
-        n = self.ser.read(2)
-        # decoded_n = n.decode() # this code wasnt be used by anything and caused it to crash
-        #print ("n undecoded = ",n)
-        targ1_hi = (n[0])
-        targ1_lo = (n[1])
-        rear_sonar_range = targ1_lo + (targ1_hi << 8)
-        print ("rear sonar range  = ", rear_sonar_range)
-        return rear_sonar_range
+
+    def rear_sonar(self, samples=1) -> float:
+        """
+        Returns distance in cm from rear sensor.
+        
+        For more accuracy several samples can be taken which will be averaged together.
+        """
+
+        readings = []
+
+        for _ in range(samples):
+            # trigger in cm
+            self.ser.write(b"\x55\xF0\x00\x01\x52")
+            self.ser.read(1)  # acknowledge
+
+            # wait until measurement complete
+            while True:
+                self.ser.write(b"\x55\xF1\x00\x01")  # read register 0
+                status = self.ser.read(1)
+                if status != b'\xff':  # 0xFF means busy
+                    break
+                time.sleep(0.01)
+
+            # Read range registers 2 & 3
+            self.ser.write(b"\x55\xF1\x02\x02")
+            n = self.ser.read(2)
+
+            targ1_hi = n[0]
+            targ1_lo = n[1]
+
+            distance = (targ1_lo + (targ1_hi << 8)) * self.speedofsound() / 10000 / 2
+
+            readings.append(distance)
+
+            time.sleep(0.065)  # minimum safe delay between pings
+
+        distance = statistics.mean(readings)
+        print("Rear sonar: " + str(distance))
+
+        # maybe use the median? might have better noise rejection
+        return distance
 
     #_______________________________________________________________________________
     # Sharp IR range sensor GP2Y0E03
