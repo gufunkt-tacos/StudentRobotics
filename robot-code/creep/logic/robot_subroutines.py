@@ -19,7 +19,7 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
 
         print("angle seen = " + str(closest_token.h_angle))
 
-        closest_token.h_angle -= angle_offset
+        closest_token.h_angle -= int(angle_offset)
 
         return closest_token
     else:
@@ -162,6 +162,8 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     # creep.drive_speed_distance(-16,70)
 
     closest_token = find_closest_token(creep, type, 0)
+    if closest_token is None:
+        return False
     closest_token_dist = closest_token.position
     token_angle = closest_token.h_angle
 
