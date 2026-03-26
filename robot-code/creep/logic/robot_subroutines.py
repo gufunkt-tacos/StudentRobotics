@@ -186,11 +186,17 @@ class LedgeConfig:
  
     # How far from the ledge (measured by the front sonars) we want to stop
     target_dist_to_ledge: float = 5.0
+    
+    initial_dist_to_ledge: float = 1000
+
+    target_distance_in_front_of_box: float = 25
  
     # Both sonars must agree to within this many cm before we call ourselves square to the ledge
     distance_alignment_tolerance: float = 5.0
 
     angle_alignment_tolerance: float = 5.0
+
+    center_advance_cm: float = 5.0
  
     # Physical distance between the two front sonar sensors on the robot
     sonar_separation: float = 37.9
@@ -247,10 +253,6 @@ class LedgeConfig:
  
     # Speed at which to reverse.
     retreat_speed: int = -30
-
-    wiggle_speed: int = 15
-    wiggle_duration: float = 0.5
-    wiggle_retries: int = 3
     wiggle_center_delay: float = 0.15 
  
  
@@ -284,35 +286,14 @@ def navigate_to_ledge_position(
                  (= counterclockwise from robot's view).
     Returns True if all manoeuvres completed, False if any timed out.
     """
-    r   = obj.position            # cm to ledge centre
-    d   = cfg.target_dist_to_ledge
-    h   = math.radians(obj.h_angle)
-    yaw = math.radians(obj.yaw)
-    print(
-        f"[navigate_to_ledge_position] "
-        f"r={r:.1f} cm  h_angle={obj.h_angle:.1f}°  yaw={obj.yaw:.1f}°  "
-        f"target_dist={d:.1f} cm"
-    )
 
     creep.Arm_Extend(1)
     
-    # P = ledge_centre + d * outward_normal
-    # outward_normal direction = (h + 180° - yaw) clockwise from forward
-    #   => unit vector components:
-    #       nx = sin(h + pi - yaw) = -sin(h - yaw)
-    #       ny = cos(h + pi - yaw) = -cos(h - yaw)
-    Px = r * math.sin(h) - d * math.sin(h - yaw)
-    Py = r * math.cos(h) - d * math.cos(h - yaw)
-    # ── Manoeuvres ──────────────────────────────────────────────────────
-    # 1. Turn to point the robot at P
-    # 2. Drive to P
-    # 3. Turn to face the ledge squarely (inward normal direction = h - yaw)
-    turn_angle  = math.degrees(math.atan2(Px, Py))   # CW from forward
-    drive_dist  = math.sqrt(Px ** 2 + Py ** 2)
-    final_turn  = (obj.h_angle - obj.yaw) - turn_angle
+    turn_angle  = obj.h_angle
+    drive_dist  = obj.position - cfg.initial_dist_to_ledge
+
     print(
         f"  turn_to_P={turn_angle:.1f}°  drive={drive_dist:.1f} cm  "
-        f"final_turn={final_turn:.1f}°"
     )
     creep.Doors_close()
     creep.Arm_tilt_up()
@@ -329,22 +310,16 @@ def navigate_to_ledge_position(
             print("[navigate_to_ledge_position] drive timed out")
             return False
     # Step 3 — turn to face the ledge squarely
-    if abs(final_turn) > 1.0:
-        ok = creep.turn_speed_angle(30 * sign(final_turn), abs(final_turn))
-        if not ok:
-            print("[navigate_to_ledge_position] final facing turn timed out")
-            return False
     print("[navigate_to_ledge_position] complete")
     return True
 
 
-_CAM_STEP_CM = 6.0
 
 
 def square_to_ledge(
     creep: CreepRobot,
-    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,
-    token_type: ObjectType = ObjectType.TOKEN,
+    obj: Object,
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG
 ) -> bool:
     """
     Three-phase approach to the ledge.
@@ -361,20 +336,32 @@ def square_to_ledge(
         If the IR sensor never triggered, hands off to scan_for_box_on_ledge.
     """
     creep.Doors_close()
-    # ── Phase 1: camera-guided approach ──────────────────────────────────────
     print("[square_to_ledge] phase 1 — camera-guided approach")
-    markers = creep.find_objects(token_type)
-    current = min(markers, key=lambda m: m.position) if markers else None
+    markers = creep.find_objects(obj.type)
+
+    if markers is None:
+        return False
+    
+    for marker in markers:
+        if marker.id == obj.id:
+            current = marker
+
+    L = creep.left_front_sonar(cfg.sonar_samples)
+    R = creep.right_front_sonar(cfg.sonar_samples)
+    spread = L - R
+
+    a = math.atan2(spread, cfg.sonar_separation)
+
+    h = current.h_angle
+
+    angle_to_turn  = a - h
+    
+    
+
+
     while current is not None:
-        r   = current.position
-        d   = cfg.target_dist_to_ledge
-        h   = math.radians(current.h_angle)
-        yaw = math.radians(current.yaw)
-        Px = r * math.sin(h) - d * math.sin(h - yaw)
-        Py = r * math.cos(h) - d * math.cos(h - yaw)
         turn_angle = math.degrees(math.atan2(Px, Py))
-        drive_dist = math.sqrt(Px ** 2 + Py ** 2)
-        print(f"  [cam] r={r:.1f}  drive={drive_dist:.1f}  turn={turn_angle:.1f}°")
+        drive_dist = current.position - 
         if abs(turn_angle) > 2.0:
             creep.turn_speed_angle(
                 cfg.alignment_turn_speed * sign(turn_angle), abs(turn_angle)
