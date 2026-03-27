@@ -294,7 +294,7 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     #     square_to_ledge(creep, None)
 
     get_in_position(creep)
-    collect_ledge_token(creep)
+    pick_up_box(creep)
 
 
     # add clearance for doors
