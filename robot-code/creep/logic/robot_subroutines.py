@@ -117,7 +117,10 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
         return None
 
     
-def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object, open_doors: bool) -> None:
+def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object, open_doors: bool) -> bool:
+
+    if not closest_token:
+        return False
 
     scaling = 1
     creep.camera_pan(0)
@@ -139,7 +142,8 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
     creep.drive_speed_distance(40, closest_token_dist - 30)
     
     if open_doors:
-        creep.Doors_open()
+        open_door_thread = Thread(target=creep.Doors_open)
+        open_door_thread.start()
         creep.drive_speed_distance(40, 70)
         creep.Doors_close()
         creep.Doors_wedge()
@@ -147,7 +151,7 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
         creep.Doors_wedge()
         creep.drive_speed_distance(40, 50)
 
-    return
+    return True
 
 def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> None:
     """
@@ -293,7 +297,7 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     #     square_to_ledge(creep, None)
 
     get_in_position(creep)
-    collect_ledge_token(creep)
+    pick_up_box(creep)
 
 
     # add clearance for doors

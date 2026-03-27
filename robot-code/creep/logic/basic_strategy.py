@@ -10,7 +10,10 @@ def strategy_base(creep: CreepRobot):
         return
 
     #go to the red box but dont get it; push out the way
-    go_to_closest_token(creep, ObjectType.ACID, find_closest_token(creep, ObjectType.ACID, 0), False) # False prevents the doors from opening
+    if go_to_closest_token(creep, ObjectType.ACID, find_closest_token(creep, ObjectType.ACID, 0), False): # False prevents the doors from opening
+        print("Pushed red box out the way")
+    else:
+        print("No red box found, moving on")
 
     if not creep.can_continue():
         return
