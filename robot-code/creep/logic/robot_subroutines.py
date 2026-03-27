@@ -405,6 +405,143 @@ def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float, cf
 
     return (distance_to_move, angle_to_move, final_turn)
 
+def is_on_floor(creep: CreepRobot, obj: Object) -> bool:
+    """
+    Determine if a detected object is on the floor vs. on an elevated surface.
+    
+    Uses the object's vertical angle and distance to estimate its height.
+    Objects below the threshold are considered floor tokens.
+    """
+    THRESHOLD = 5
+    CAMERA_HEIGHT = 44.5
+
+    d = obj.position
+    a = obj.v_angle
+
+    d_slant = math.sqrt(obj.position**2 + CAMERA_HEIGHT**2)
+
+    h = math.sin(math.radians(a)) * d_slant + CAMERA_HEIGHT
+
+    if h >= THRESHOLD:
+        creep.LED_A_blue
+        return False
+
+    creep.LED_B_green
+    return True
+
+
+def find_home_marker(creep: CreepRobot) -> Object | None:
+    """
+    Try to find the closest home marker by panning the camera, then rotating.
+    Returns the closest home marker Object or None if not found.
+    """
+    # Pan left, centre, right before moving
+    for pan_angle in [0, 45, -45]:
+        creep.camera_pan(pan_angle)
+        markers = creep.find_objects(ObjectType.ARENA_MARKER)
+        if markers:
+            home_markers = [m for m in markers if m.id in creep.my_lab]
+            if home_markers:
+                creep.camera_pan(0)
+                creep.turn_speed_angle(16 * sign(pan_angle), pan_angle)
+                return min(home_markers, key=lambda m: m.position)
+
+    creep.camera_pan(0)
+
+    # Rotate in place in 45° steps, full 360°
+    for _ in range(3):
+        creep.turn_speed_angle(16, 90)
+        for pan_angle in [0, 45, -45]:
+            creep.camera_pan(pan_angle)
+            markers = creep.find_objects(ObjectType.ARENA_MARKER)
+            if markers:
+                home_markers = [m for m in markers if m.id in creep.my_lab]
+                if home_markers:
+                    creep.camera_pan(0)
+                    creep.turn_speed_angle(16 * sign(pan_angle), pan_angle)
+                    return min(home_markers, key=lambda m: m.position)
+
+    creep.camera_pan(0)
+    return None
+
+
+
+def go_home_norm(creep: CreepRobot, norm_dist: float = 50.0) -> bool:
+    """
+    Navigate to a position norm_dist cm in front of the closest home marker,
+    perpendicular to the wall.
+
+    Returns True if successfully reached the home normal, False if lost.
+    """
+    creep.Doors_wedge()
+
+    # --- Attempt 1: find home marker directly ---
+    home_marker = find_home_marker(creep)
+
+    while home_marker is None:
+        # --- Attempt 2: navigate to a nearby arena marker and look again ---
+        print("[go_home] home not visible, navigating to intermediate vantage point")
+        if not navigate_via_arena_marker(creep, norm_dist):
+            print("[go_home] no arena markers visible at all, giving up")
+            return False
+
+        home_marker = find_home_marker(creep)
+
+    # --- Drive to the normal point in front of home ---
+    print(f"[go_home] found home marker {home_marker.id} at {home_marker.position:.1f} cm")
+    dist, angle, final_turn = get_normal_to_token(creep, home_marker, norm_dist)
+
+    creep.turn_speed_angle(16 * sign(angle), abs(angle))
+    creep.drive_speed_distance(30, dist)
+    creep.turn_speed_angle(16 * sign(final_turn), abs(final_turn))
+
+    print("[go_home] reached home position")
+    return True
+
+
+def navigate_via_arena_marker(creep: CreepRobot, norm_dist: float) -> bool:
+    """
+    Check if any preferred markers are visible (sorted by proximity to home).
+    If yes, go to the best one's normal facing the wall.
+    If no, go to any other visible marker's normal facing 90 degrees to it.
+    """
+    markers = creep.find_objects(ObjectType.ARENA_MARKER)
+
+    if markers:
+        visible_ids = {m.id: m for m in markers}
+
+        # --- Preferred path: best visible marker from precomputed ranking ---
+        best = None
+        for marker_id in creep.preferred_nav_markers:
+            if marker_id in visible_ids:
+                best = visible_ids[marker_id]
+                break
+
+        if best is not None:
+            print(f"[navigate_via_arena_marker] using preferred marker {best.id}")
+            dist, angle, final_turn = get_normal_to_token(creep, best, norm_dist)
+            creep.turn_speed_angle(16 * sign(angle), abs(angle))
+            creep.drive_speed_distance(30, dist)
+            creep.turn_speed_angle(16 * sign(final_turn), abs(final_turn))
+            return True
+
+        # --- Fallback: any non-home visible marker, stop 90 degrees to its normal ---
+        non_preferred = [m for m in markers if m.id not in creep.preferred_nav_markers
+                                            and m.id not in creep.my_lab]
+        if non_preferred:
+            fallback = min(non_preferred, key=lambda m: m.position)
+            print(f"[navigate_via_arena_marker] fallback marker {fallback.id} — stopping 90° to normal")
+            dist, angle, final_turn = get_normal_to_token(creep, fallback, norm_dist)
+            creep.turn_speed_angle(16 * sign(angle), abs(angle))
+            creep.drive_speed_distance(30, dist)
+            # Turn to face 90 degrees to the wall normal instead of towards it
+            # This orients the robot along the wall, looking across the arena towards home
+            sideways_turn = final_turn - 90
+            creep.turn_speed_angle(16 * sign(sideways_turn), abs(sideways_turn))
+            return True
+
+    print("[navigate_via_arena_marker] no markers visible at all")
+    return False
 
 
 def go_home(creep: CreepRobot):

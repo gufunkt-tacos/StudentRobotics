@@ -51,12 +51,18 @@ ARENA_MARKER_COORS = {
     3: {15: (0.0, 76.25), 16: (0.0, 152.5), 17: (0.0, 228.75), 18: (0.0, 305.0), 19: (0.0, 381.25)}
 }
 
+
+
 def get_marker_wall(id):
     return id // 5
 
 
 
 get_marker_coords = lambda marker_id: ARENA_MARKER_COORS[marker_id // 5][marker_id]
+
+
+
+
 
 class ObjectType(Flag):
     TOKEN = auto()
@@ -793,6 +799,25 @@ class CreepRobot():
         if self.robot.kch.leds[led].colour != colour:
             self.robot.kch.leds[led].colour = colour
 
+    def precalculate_preferred_markers(self) -> list[int]:
+        """
+        At startup, sort all non-home arena markers by how close they are
+        to the nearest home marker. Stored as creep.preferred_nav_markers.
+        """
+        home_coords = [get_marker_coords(m) for m in self.my_lab]
+
+        def dist_to_nearest_home(marker_id: int) -> float:
+            x, y = get_marker_coords(marker_id)
+            hx, hy = home_coords[1]
+            return math.sqrt((x - hx)**2 + (y - hy)**2)
+                
+            
+        candidates = [i for i in range(20) if i not in self.my_lab]
+        candidates.sort(key=dist_to_nearest_home)
+
+        print(f"[precalculate_preferred_markers] preferred order: {candidates}")
+        return candidates
+
 
     #def distance_ultrasound():
     #    return arduino.ultrasound_measure(2,3) # ultrasound pins might need to be changed
@@ -1173,11 +1198,11 @@ class CreepRobot():
         #  FOR TEST PURPOSES ONLY +++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # This code is for safety but may be removed
 
-        #my_lab = []
+        self.my_lab = []
         if robot_mode == DEV:
             my_mode = "DEV"
             self.my_corner = 0  # Change the corner number for test purposes
-            if self.my_corner==0:
+            if self.my_corner == 0:
                 self.my_lab = [18,19,0]
             else:
                 for i in range(0,3,1):
@@ -1198,6 +1223,8 @@ class CreepRobot():
         print ("I am in",my_mode,"mode")    
         print ("Selected starting corner = ",self.my_corner)
         print ("my_lab  ", self.my_lab)
+
+        self.preferred_nav_markers = self.precalculate_preferred_markers()
 
 
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
