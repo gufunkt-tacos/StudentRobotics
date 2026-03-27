@@ -23,10 +23,10 @@ class LedgeConfig:
     
     initial_dist_to_ledge: float = 1000
 
-    target_distance_in_front_of_box: float = 6
+    target_distance_in_front_of_box: float = 10
  
     # Both sonars must agree to within this many cm before we call ourselves square to the ledge
-    distance_alignment_tolerance: float = 2
+    distance_alignment_tolerance: float = 5
 
     angle_alignment_tolerance: float = 2
  
@@ -101,9 +101,8 @@ def sign(x):
 
 
 def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float = 0.0) -> Object | None:
-    valid_tokens = []
     valid_tokens = creep.find_objects(type)
-    if valid_tokens:
+    if valid_tokens is not None:
         closest_token = valid_tokens[0]
         for i in range(0,len(valid_tokens)):
             if(valid_tokens[i].position < closest_token.position):
@@ -131,7 +130,7 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
 
     # Try to find the token again after turning, to get another reading
     new_closest_token = find_closest_token(creep, type, 0)
-    if new_closest_token:
+    if new_closest_token is not None:
         closest_token_dist = new_closest_token.position
         token_angle = new_closest_token.h_angle   
     
@@ -159,6 +158,8 @@ def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) 
     ANGLE_TOL = cfg.angle_alignment_tolerance     # cm difference between sensors
     SONAR_SEPARATION = cfg.sonar_separation
 
+    creep.Doors_close()
+
     while True:
         L = creep.left_front_sonar()
         R = creep.right_front_sonar()
@@ -183,7 +184,7 @@ def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) 
             break
 
         # might need tuning
-        Kd = 0.8   # distance gain
+        Kd = 0.5   # distance gain
         Ka = 0.5   # angle gain
 
         speed = Kd * dist_error
@@ -202,8 +203,6 @@ def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) 
 
 def collect_ledge_token(creep: CreepRobot):
 #this is copied from keith; idk how it works AT ALL
-    
-    get_in_position(creep)
 
     height = creep.sucker_height()
     print("height = ",height, " cms")
@@ -288,14 +287,14 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     creep.motor_stop()
     # collect_ledge_token(creep)
 
-    token_to_square = new_closest_token if closest_token is None else closest_token
-    if token_to_square is not None:
-        square_to_ledge(creep, token_to_square)
-    else:
-        square_to_ledge(creep, None)
+    # token_to_square = new_closest_token if closest_token is None else closest_token
+    # if token_to_square is not None:
+    #     square_to_ledge(creep, token_to_square)
+    # else:
+    #     square_to_ledge(creep, None)
 
     get_in_position(creep)
-    pick_up_box(creep)
+    collect_ledge_token(creep)
 
 
     # add clearance for doors

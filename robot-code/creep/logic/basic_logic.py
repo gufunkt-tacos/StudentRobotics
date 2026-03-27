@@ -2,6 +2,7 @@ import time
 
 from ..machine import CreepRobot, ObjectType, Object, ARENA_MARKER_COORS, get_marker_coords
 from math import atan2, cos, degrees, radians, sin
+from threading import Thread
 
 def move_forward(creep: CreepRobot):
     creep.drive_sync(16, 0)
