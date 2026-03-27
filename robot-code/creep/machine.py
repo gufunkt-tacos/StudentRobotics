@@ -991,6 +991,17 @@ class CreepRobot():
             (Note.E7, 0.4),
         ]
         self.play(jingle, pause=0.06)
+
+    def error_jingle(self):
+        error_tune = [
+            (Note.C6, 0.3),
+            (Note.C7, 0.3),
+            (Note.C6, 0.3),
+            (Note.C7, 0.3),
+            (Note.C6, 0.3),
+            (Note.C7, 0.3),
+        ]
+        self.play(error_tune, pause=0.1)
     
 
     #       drive_speed_distance_objchk(speed, distance, object_detect_range)
