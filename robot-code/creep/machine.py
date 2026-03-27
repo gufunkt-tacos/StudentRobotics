@@ -1243,6 +1243,8 @@ class CreepRobot():
         self.startup_jingle()
         self.robot.wait_start()
 
+        self.camera_pan(0)
+
         self.time_started_game = time.time()   #  Get time when START switch pressed
         print("Game timer started")
         print("")

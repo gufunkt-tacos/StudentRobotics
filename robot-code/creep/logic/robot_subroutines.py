@@ -256,7 +256,6 @@ def collect_ledge_token(creep: CreepRobot):
 
 def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     #turn towards platform
-    print("We just did a 90.")
     creep.turn_speed_angle(16 * sign(angle_to_ledge), abs(angle_to_ledge))
     #close door so we can get closer
     creep.Doors_close()
