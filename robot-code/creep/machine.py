@@ -66,7 +66,7 @@ class ObjectType(Flag):
     ARENA_MARKER = auto()
 
     IGNORE = auto()
-    ANY = ACID_TOKENS | BASE_TOKENS | ARENA_MARKER
+    ANY = ACID | BASE | ARENA_MARKER
 
 class Object:
     def __init__(self, id: int, position: float, h_angle: float, v_angle: float, yaw: float, pitch: float, roll: float):

@@ -8,6 +8,91 @@ from statistics import mean
 from .basic_logic import pick_up_box
 
 
+@dataclass
+class LedgeConfig:
+    """
+    All tunable parameters for the ledge-pickup sequence in one place.
+ 
+    Distances are in centimetres, angles in degrees, times in seconds.
+    """
+ 
+    # APPROACH/ALIGNMENT
+ 
+    # How far from the ledge (measured by the front sonars) we want to stop
+    target_dist_to_ledge: float = 25
+    
+    initial_dist_to_ledge: float = 1000
+
+    target_distance_in_front_of_box: float = 6
+ 
+    # Both sonars must agree to within this many cm before we call ourselves square to the ledge
+    distance_alignment_tolerance: float = 2
+
+    angle_alignment_tolerance: float = 2
+ 
+    # Physical distance between the two front sonar sensors on the robot
+    sonar_separation: float = 50
+ 
+    # Drive / turn speed used during the alignment phase
+    Kd = 0.8
+    Ka = 0.5
+ 
+    # Maximum wall-clock time we'll spend trying to square up before giving up.
+    alignment_timeout: float = 10.0
+ 
+    # How many sonar samples to average during alignment (more = slower but
+    # steadier readings).
+    sonar_samples: int = 1
+
+    # ARM EXTENSION
+ 
+    # Motor current threshold below which we consider the linear actuator to have reached its hard stop (fully extended or retracted).
+    arm_stall_current: float = 0.01
+ 
+    # Maximum time to wait for the arm to finish extending or retracting.
+    arm_timeout: float = 10.0
+ 
+    # GRIPPING
+ 
+    # Box height (IR sensor reading) below which we assume the sucker is directly over a box surface.
+    box_height_threshold: float = 10
+ 
+    # How long to attempt to achieve suction before declaring grip failure
+    grip_timeout: float = 8.0
+ 
+    # How long the grip must remain stable before we trust it
+    grip_confirmation_dwell: float = 0.5
+
+ 
+    # WIGGLE SEACH
+ 
+    # Speed used to rotate in place while scanning for the box
+    wiggle_speed: int = 10
+ 
+    # Duration of each wiggle half-swing.
+    wiggle_duration: float = 0.1
+ 
+    # Number of full left-right-centre cycles before giving up the box search
+    wiggle_retries: int = 3
+      
+    wiggle_center_delay: float = 0.02 
+
+ 
+    # RETREAT
+ 
+    # How far to reverse after completing (or failing) a pickup attempt
+    retreat_distance: float = 50.0
+ 
+    # Speed at which to reverse.
+    retreat_speed: int = -30
+    
+ 
+ 
+ 
+
+DEFAULT_LEDGE_CONFIG = LedgeConfig()
+
+
 def sign(x):
     if(x>=0):
         return 1
@@ -449,89 +534,7 @@ def navigate_obstacle(creep: CreepRobot):
             
         
 
-@dataclass
-class LedgeConfig:
-    """
-    All tunable parameters for the ledge-pickup sequence in one place.
- 
-    Distances are in centimetres, angles in degrees, times in seconds.
-    """
- 
-    # APPROACH/ALIGNMENT
- 
-    # How far from the ledge (measured by the front sonars) we want to stop
-    target_dist_to_ledge: float = 25
-    
-    initial_dist_to_ledge: float = 1000
 
-    target_distance_in_front_of_box: float = 6
- 
-    # Both sonars must agree to within this many cm before we call ourselves square to the ledge
-    distance_alignment_tolerance: float = 2
-
-    angle_alignment_tolerance: float = 2
- 
-    # Physical distance between the two front sonar sensors on the robot
-    sonar_separation: float = 50
- 
-    # Drive / turn speed used during the alignment phase
-    Kd = 0.8
-    Ka = 0.5
- 
-    # Maximum wall-clock time we'll spend trying to square up before giving up.
-    alignment_timeout: float = 10.0
- 
-    # How many sonar samples to average during alignment (more = slower but
-    # steadier readings).
-    sonar_samples: int = 1
-
-    # ARM EXTENSION
- 
-    # Motor current threshold below which we consider the linear actuator to have reached its hard stop (fully extended or retracted).
-    arm_stall_current: float = 0.01
- 
-    # Maximum time to wait for the arm to finish extending or retracting.
-    arm_timeout: float = 10.0
- 
-    # GRIPPING
- 
-    # Box height (IR sensor reading) below which we assume the sucker is directly over a box surface.
-    box_height_threshold: float = 10
- 
-    # How long to attempt to achieve suction before declaring grip failure
-    grip_timeout: float = 8.0
- 
-    # How long the grip must remain stable before we trust it
-    grip_confirmation_dwell: float = 0.5
-
- 
-    # WIGGLE SEACH
- 
-    # Speed used to rotate in place while scanning for the box
-    wiggle_speed: int = 10
- 
-    # Duration of each wiggle half-swing.
-    wiggle_duration: float = 0.1
- 
-    # Number of full left-right-centre cycles before giving up the box search
-    wiggle_retries: int = 3
-      
-    wiggle_center_delay: float = 0.02 
-
- 
-    # RETREAT
- 
-    # How far to reverse after completing (or failing) a pickup attempt
-    retreat_distance: float = 50.0
- 
-    # Speed at which to reverse.
-    retreat_speed: int = -30
-    
- 
- 
- 
-
-DEFAULT_LEDGE_CONFIG = LedgeConfig()
 
 class LedgePickupResult(Enum):
     """
@@ -602,6 +605,7 @@ def square_to_ledge(
     creep.turn_speed_angle(16 * sign(angle_to_move), abs(final_turn_angle))
 
     get_in_position(creep)
+    return True
 
 
 
@@ -741,7 +745,7 @@ def confirm_grip(
 
 def retract_with_box(
     creep: CreepRobot,
-    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,):
     """
     Retract the arm with the box held under suction, periodically verifying
     that the grip has not been lost.
@@ -836,6 +840,9 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object | None, cfg: LedgeConf
 
     The robot will then retreat *cfg.retreat_distance* from the centre pillion, ready for further collection attempts.
     """
+    if obj is None:
+        return LedgePickupResult.NAV_FAILED
+
     if not navigate_to_initial_ledge_position(creep, obj, cfg):
         return LedgePickupResult.NAV_FAILED
     # square_to_ledge now handles camera → sonar → wiggle internally.
@@ -843,7 +850,7 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object | None, cfg: LedgeConf
     if not square_to_ledge(creep, obj):
         return LedgePickupResult.ALIGNMENT_TIMEOUT      # ← was ALIGNMENT_TIMEOUT
     # ← REMOVE the scan_for_box_on_ledge call that was here
-    if not scan_for_box_on_ledge(creep:
+    if not scan_for_box_on_ledge(creep, cfg):
         return LedgePickupResult.NO_BOX_FOUND
     if not pick_up_box(creep):
         return LedgePickupResult.GRIP_FAILED
@@ -852,9 +859,4 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object | None, cfg: LedgeConf
     retreat_from_ledge(creep, cfg)                 # ← bug 4 fixed
     print("Box successfully collected from ledge.")
     return LedgePickupResult.SUCCESS
-
-
-    
-
-
 
