@@ -248,7 +248,7 @@ def next_arena_token(start: int, step: int, direction: int) -> int:
         token+=20
     return token
     
-def get_normal_to_token(creep: CreepRobot, obj: Object, distance_away: float) -> tuple[float, float]:
+def get_normal_to_token(creep: CreepRobot, obj: Object, distance_away: float) -> tuple[float, float, float]:
     """
     This function returns the position and horizontal angle a set distance away from the token.
     
@@ -258,7 +258,7 @@ def get_normal_to_token(creep: CreepRobot, obj: Object, distance_away: float) ->
         distance_away: Distance to maintain from the object
         
     Returns:
-        tupl[float, float]: (distance_to_move, angle_to_move)
+        tuple[float, float, float]: (distance_to_move, angle_to_move, final_turn)
     """
     r = distance_away 
     d = obj.position
@@ -271,9 +271,11 @@ def get_normal_to_token(creep: CreepRobot, obj: Object, distance_away: float) ->
     # apply sine rule to get angle (signed)
     angle_to_move = math.degrees(math.asin(math.sin(math.radians(y)) * r / distance_to_move)) + h
 
-    return (distance_to_move, angle_to_move)
+    final_turn = (h - angle_to_move) - y
 
-def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float) -> tuple[float, float]:
+    return (distance_to_move, angle_to_move, final_turn)
+
+def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float) -> tuple[float, float, float]:
     """
     This function returns the position and horizontal angle a set distance away from the ledge.
     Note that this is not accurate as it uses the sonars.
@@ -284,7 +286,7 @@ def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float) ->
         distance_away: Distance to maintain from the object
         
     Returns:
-        tupl[float, float]: (distance_to_move, angle_to_move)
+        tuple[float, float, float]: (distance_to_move, angle_to_move, final_turn)
     """
     SONAR_SEPERATION = 50
     
@@ -303,7 +305,9 @@ def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float) ->
     # apply sine rule to get angle (signed)
     angle_to_move = h - math.degrees(math.asin(math.sin(math.radians(y)) * r / distance_to_move))
 
-    return (distance_to_move, angle_to_move)
+    final_turn = (h - angle_to_move) - y
+
+    return (distance_to_move, angle_to_move, final_turn)
 
 
 
