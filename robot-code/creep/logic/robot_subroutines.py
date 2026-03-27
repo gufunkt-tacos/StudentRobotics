@@ -1,4 +1,5 @@
-from ..machine import CreepRobot, Object, ObjectType
+from ..machine import *
+from creep.logic.basic_logic import *
 import math
 import time
 from dataclasses import dataclass, field
@@ -25,14 +26,14 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
 
         print("angle seen = " + str(closest_token.h_angle))
 
-        closest_token.h_angle -= angle_offset
+        closest_token.h_angle -= int(angle_offset)
 
         return closest_token
     else:
         return None
 
     
-def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object) -> None:
+def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object, open_doors: bool) -> None:
 
     scaling = 1
     creep.camera_pan(0)
@@ -51,18 +52,168 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
     
     creep.turn_speed_angle(5*sign(token_angle), (abs(token_angle)/scaling)/2)
 
-    creep.drive_speed_distance(40, closest_token_dist)
-    creep.Doors_open()
-    creep.drive_speed_distance(40, 60)
+    creep.drive_speed_distance(40, closest_token_dist - 20)
+    
+    if open_doors:
+        creep.Doors_open()
+        creep.drive_speed_distance(40, 60)
+        creep.Doors_close()
+        creep.Doors_wedge()
+    else:
+        creep.Doors_wedge()
+        creep.drive_speed_distance(40, 60)
+
+
+def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> None:
+    """
+    Final adjustments before collecting box from ledge (uses sonar)
+    """
+    TARGET_DIST = cfg.target_distance_in_front_of_box   # cm from wall
+    DIST_TOL = cfg.distance_alignment_tolerance      # acceptable error (deg)
+    ANGLE_TOL = cfg.angle_alignment_tolerance     # cm difference between sensors
+    SONAR_SEPARATION = cfg.sonar_separation
+
+    while True:
+        L = creep.left_front_sonar()
+        R = creep.right_front_sonar()
+
+        # distance
+        dist_error = ((L + R) / 2) - TARGET_DIST
+
+        # angle
+        markers = creep.find_objects(ObjectType.ANY)
+        current = None
+        if markers is not None:
+            current = min(markers, key=lambda m: m.position)
+
+        angle_error = (
+            SONAR_SEPARATION * math.tan(math.radians(current.h_angle))
+            if current is not None
+            else (L - R)
+        )
+
+        # check if done
+        if abs(dist_error) < DIST_TOL and abs(angle_error) < ANGLE_TOL:
+            creep.motor_stop()
+            break
+
+        # might need tuning
+        Kd = 0.8   # distance gain
+        Ka = 0.5   # angle gain
+
+        speed = Kd * dist_error
+        turn  = Ka * angle_error
+
+        # convert to motor speeds
+        speed1 = speed + turn
+        speed2 = speed - turn
+
+        # --- Clamp speeds ---
+        speed1 = max(min(speed1, 10), -10)
+        speed2 = max(min(speed2, 10), -10)
+
+        creep.drive_both(int(speed1), int(speed2))
+    
+
+def collect_ledge_token(creep: CreepRobot):
+#this is copied from keith; idk how it works AT ALL
+    
+    get_in_position(creep)
+
+    height = creep.sucker_height()
+    print("height = ",height, " cms")
+    while height > 10:
+        height = creep.sucker_height()
+        print("height = ",height, " cms")
+        # extend arm
+        print("extending arm")
+        #robot.motor_boards["SR0VJ1K"].motors[1].power = -1.0
+        creep.Arm_Extend(1)
+    print("Token detected, stop arm extending")
+    # robot.motor_boards["SR0VJ1K"].motors[1].power = 0  
+    creep.Arm_Stop()  
+    #vacuum on
+    creep.VacValve("GRIP") # Allows suction
+    creep.VacPump(1)
+    time.sleep(1)
+    #tilt arm down
+    vacPressure = int(creep.robot.arduino.command("z"))
+    creep.Arm_tilt_down()
+    while (vacPressure > 50):
+        vacPressure = int(creep.robot.arduino.command("z"))
+        print("Vac Pressure = ",vacPressure)
+    time.sleep(.5)   
+    #tilt arm up
+    creep.Arm_tilt_up()
+    time.sleep(.5)
+    #retract arm
+    #robot.motor_boards["SR0VJ1K"].motors[1].power = 1.0
+    creep.Arm_Retract(1) # full speed. Takes around 7 seconds 
+    time.sleep(7)
+    
+    #vacuum off
+    #robot.motor_boards["SR0VJ1K"].motors[0].power = 0
+    creep.VacValve("VENT") # releases vacuum
+    creep.VacPump(0)
+
+    creep.Arm_tilt_up()
+    height = creep.sucker_height()
+    print("height = ",height, " cms")
+    while height < 10:
+        height = creep.sucker_height()
+        print("height = ",height, " cms")
+        # extend arm
+        print("extending arm")
+        #robot.motor_boards["SR0VJ1K"].motors[1].power = -1.0
+        creep.Arm_Extend(1)
+    creep.Arm_tilt_down()
+    creep.Arm_Retract(1)    
+    time.sleep(3)
+
+def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
+    #turn towards platform
+    creep.turn_speed_angle(16*sign(angle_to_ledge),abs(angle_to_ledge))
+    #close door so we can get closer
     creep.Doors_close()
+    #reverse away from platform - why do we do this?
+    # creep.drive_speed_distance(-16,70)
+
+    closest_token = find_closest_token(creep, type, 0)
+    if closest_token is None:
+        return False
+    closest_token_dist = closest_token.position
+    token_angle = closest_token.h_angle
+
+    print(closest_token_dist)
+    creep.turn_speed_angle(10*sign(token_angle), abs(token_angle))
+
+    # Try to find the token again after turning, to get another reading
+    new_closest_token = find_closest_token(creep, type, 0)
+    if new_closest_token:
+        closest_token_dist = new_closest_token.position
+        new_token_angle = new_closest_token.h_angle
+    
+    creep.turn_speed_angle(5*sign(new_token_angle), abs(new_token_angle)/2)
+
+    creep.drive_speed_distance_objchk(24,120,25)
+    creep.motor_stop()
+    collect_ledge_token(creep)
+
+    # add clearance for doors
+    creep.drive_speed_distance(-16, 10)
     creep.Doors_wedge()
+
+    creep.drive_speed_distance_objchk(-16,50,20)
+    creep.turn_speed_angle(-16*sign(angle_to_ledge),abs(angle_to_ledge))
+
+
 
 
 def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     # Find a token in front of the robot
     closest_token = find_closest_token(creep, type)
     if closest_token:
-        go_to_closest_token(creep, type, closest_token)
+        go_to_closest_token(creep, type, closest_token, True)
         return True
     
     # If no token is found, pan the camera to the left and right to try and find one
@@ -71,7 +222,7 @@ def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     closest_token = find_closest_token(creep, type, angle_offset)
 
     if closest_token:
-        go_to_closest_token(creep, type, closest_token)
+        go_to_closest_token(creep, type, closest_token, True)
         return True
     
     # If still no token is found, pan the camera to the right and try again
@@ -80,7 +231,7 @@ def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     closest_token = find_closest_token(creep, type, angle_offset)
 
     if closest_token:
-        go_to_closest_token(creep, type, closest_token)
+        go_to_closest_token(creep, type, closest_token, True)
         return True
 
     # If no token is found after panning, return the camera to the center and return False
@@ -104,12 +255,73 @@ def next_arena_token(start: int, step: int, direction: int) -> int:
         token+=20
     return token
     
+def get_normal_to_token(creep: CreepRobot, obj: Object, distance_away: float) -> tuple[float, float, float]:
+    """
+    This function returns the position and horizontal angle a set distance away from the token.
+    
+    Args:
+        creep: CreepRobot instance
+        obj: Object to calculate normal from
+        distance_away: Distance to maintain from the object
+        
+    Returns:
+        tuple[float, float, float]: (distance_to_move, angle_to_move, final_turn)
+    """
+    r = distance_away 
+    d = obj.position
+    y = obj.yaw
+    h = obj.h_angle
 
-"""
-Dylan to Dan - 
-    Not sure what this code is supposed to do so I have tried to refactor  
-    but it may be wrong
-"""
+    # apply cosine rule to get distance
+    distance_to_move = math.sqrt(d**2 + r**2 - 2 * d * r * math.cos(math.radians(y)))
+
+    # apply sine rule to get angle (signed)
+    angle_to_move = math.degrees(math.asin(math.sin(math.radians(y)) * r / distance_to_move)) + h
+
+    final_turn = (h - angle_to_move) - y
+
+    return (distance_to_move, angle_to_move, final_turn)
+
+def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> tuple[float, float, float] | None:
+    """
+    This function returns the position and horizontal angle a set distance away from the ledge.
+    Note that this is not accurate as it uses the sonars and needs to be checked as it can RETURN NONE!
+    
+    Args:
+        creep: CreepRobot instance
+        obj: Object to calculate normal from
+        distance_away: Distance to maintain from the object
+        
+    Returns:
+        tuple[float, float, float]: (distance_to_move, angle_to_move, final_turn)
+        or None
+    """ 
+    SONAR_SEPARATION = cfg.sonar_separation
+    
+    L = creep.left_front_sonar()
+    R = creep.right_front_sonar()
+    spread = L - R
+    
+    if spread >= cfg.sonar_separation:
+      return None
+
+    r = distance_away 
+    d = obj.position
+    y = math.degrees(math.atan2(spread, SONAR_SEPARATION))
+    h = obj.h_angle
+
+    # apply cosine rule to get distance
+    distance_to_move = math.sqrt(d**2 + r**2 - 2 * d * r * math.cos(math.radians(h - y)))
+
+    # apply sine rule to get angle (signed)
+    angle_to_move = h - math.degrees(math.asin(math.sin(math.radians(y)) * r / distance_to_move))
+
+    final_turn = (h - angle_to_move) - y
+
+    return (distance_to_move, angle_to_move, final_turn)
+
+
+
 def go_home(creep: CreepRobot):
     
     creep.Doors_wedge()
@@ -120,15 +332,18 @@ def go_home(creep: CreepRobot):
     arena_markers = creep.find_objects(ObjectType.ARENA_MARKER)
     if (arena_markers):
         for i in range(len(arena_markers)):
-            for j in range(0,2):
-                if(arena_markers[i].position == creep.my_lab[j]):
+            for j in range(len(creep.my_lab)):
+                print(f"current marker = {arena_markers[i].id} lab token checking for = {creep.my_lab[j]}")
+                if(arena_markers[i].id == creep.my_lab[j]):
                     marker_found = True
                     if(arena_markers[i].position < closest_token_dist):
                         closest_token_dist = arena_markers[i].position
                         closest_token_angle = arena_markers[i].h_angle
             print(str(arena_markers[i]))
     
+
     if marker_found:
+        print("moving" + str(closest_token_dist))
         creep.turn_speed_angle(5, closest_token_angle)
         creep.drive_speed_distance(30, closest_token_dist)
         return
@@ -137,18 +352,76 @@ def go_home(creep: CreepRobot):
     for step in range(1,10):
         if (arena_markers):
             for i in range(len(arena_markers)):
-                if(arena_markers[i].position == next_arena_token(creep.my_lab[0],step,-1) or arena_markers[i].position == next_arena_token(creep.my_lab[2],step,1)):
+                if(arena_markers[i].id == next_arena_token(creep.my_lab[0],step,-1) or arena_markers[i].id == next_arena_token(creep.my_lab[2],step,1)):
                     marker_found = True
                     if(arena_markers[i].position < closest_token_dist):
+                        marker_id = arena_markers[i].id
                         closest_token_dist = arena_markers[i].position
                         closest_token_angle = arena_markers[i].h_angle
     
     if marker_found:
-        creep.turn_speed_angle(5, closest_token_angle)
-        creep.drive_speed_distance(30, closest_token_dist)
-        creep.turn_speed_angle(5,90*sign(closest_token_angle))
+        
+        marker_in_corner = False
+
+        for marker in creep.corner_markers:
+            if marker == marker_id:
+                marker_in_corner = True
+
+
+        marker_coords = get_marker_coords(marker_id)
+        lab_wall = get_marker_wall(creep.my_lab[2])
+        wall_facing = get_marker_wall(marker_id)
+        wall_zero = lab_wall
+        wall_one = (lab_wall + 1)%4
+        wall_two = (lab_wall + 2)%4
+        wall_three = (lab_wall + 3)%4
+        print(lab_wall)
+        print(wall_zero, wall_one, wall_two, wall_three)
+        print(marker_id)
+        print(get_marker_wall(marker_id))
+        print("wall facing: " + str(wall_facing))
+        print("distance: " + str(closest_token_dist))
+
+        if(wall_facing == wall_zero):
+             print("turning from wall zero")
+             if (closest_token_dist>75 and marker_in_corner == False):
+                creep.turn_speed_angle(16,180)
+                print("turning 180deg")
+             else:
+                creep.drive_speed_distance(32, closest_token_dist/1)
+                creep.turn_speed_angle(-16, 90)
+                
+        elif(wall_facing == wall_one):
+            print("turning from wall one")
+            if (closest_token_dist>75 and marker_in_corner == False):
+                creep.turn_speed_angle(16,180)
+                print("turning 180deg")
+            else:
+                creep.turn_speed_angle(-16, 90)
+            
+        elif(wall_facing == wall_two):
+            print("turning from wall two")
+            if (closest_token_dist>75 and marker_in_corner == False):
+                creep.turn_speed_angle(16,180)
+                print("turning 180deg")
+            else:
+                creep.turn_speed_angle(16, 90)
+        elif(wall_facing == wall_three):
+            print("turning from wall three")
+            if (closest_token_dist>75 and marker_in_corner == False):
+                creep.turn_speed_angle(16,180)
+                print("turning 180deg")
+            else:
+                creep.drive_speed_distance(32, closest_token_dist/1)
+                creep.turn_speed_angle(16, 90)
+
+
+        else:
+            print("can't find which wall i'm at") #should never reach this   
+        
     else:
-        creep.drive_speed_distance(30,25)
+        print("no token found")
+        creep.turn_speed_angle(16,45) # if it can't see anything, turn
     
     go_home(creep)
 
@@ -170,10 +443,11 @@ def navigate_obstacle(creep: CreepRobot):
                     closest_token_dist = valid_tokens[i].position
             
         if (closest_token_dist > 50):
-            creep.turn_speed_angle(32*sign(right_sonar-left_sonar),90)
+            creep.turn_speed_angle(16*sign(right_sonar-left_sonar),90)
             creep.drive_speed_distance(20,50)
-            creep.turn_speed_angle(32*-sign(right_sonar-left_sonar),90)
-
+            creep.turn_speed_angle(16*-sign(right_sonar-left_sonar),90)
+            
+        
 
 @dataclass
 class LedgeConfig:
@@ -186,36 +460,31 @@ class LedgeConfig:
     # APPROACH/ALIGNMENT
  
     # How far from the ledge (measured by the front sonars) we want to stop
-    target_dist_to_ledge: float = 15
+    target_dist_to_ledge: float = 25
     
     initial_dist_to_ledge: float = 1000
 
-    target_distance_in_front_of_box: float = 25
-
-    cam_step_distance = 5
+    target_distance_in_front_of_box: float = 6
  
     # Both sonars must agree to within this many cm before we call ourselves square to the ledge
-    distance_alignment_tolerance: float = 5.0
+    distance_alignment_tolerance: float = 2
 
-    angle_alignment_tolerance: float = 5.0
-
-    center_advance_cm: float = 5.0
+    angle_alignment_tolerance: float = 2
  
     # Physical distance between the two front sonar sensors on the robot
-    sonar_separation: float = 37.9
+    sonar_separation: float = 50
  
     # Drive / turn speed used during the alignment phase
-    alignment_drive_speed: int = 15
-    alignment_turn_speed:  int = 10
+    Kd = 0.8
+    Ka = 0.5
  
     # Maximum wall-clock time we'll spend trying to square up before giving up.
-    alignment_timeout: float = 20.0
+    alignment_timeout: float = 10.0
  
     # How many sonar samples to average during alignment (more = slower but
     # steadier readings).
-    sonar_samples: int = 5
+    sonar_samples: int = 1
 
- 
     # ARM EXTENSION
  
     # Motor current threshold below which we consider the linear actuator to have reached its hard stop (fully extended or retracted).
@@ -223,12 +492,11 @@ class LedgeConfig:
  
     # Maximum time to wait for the arm to finish extending or retracting.
     arm_timeout: float = 10.0
-
  
     # GRIPPING
  
     # Box height (IR sensor reading) below which we assume the sucker is directly over a box surface.
-    box_height_threshold: float = 7.5
+    box_height_threshold: float = 10
  
     # How long to attempt to achieve suction before declaring grip failure
     grip_timeout: float = 8.0
@@ -240,13 +508,15 @@ class LedgeConfig:
     # WIGGLE SEACH
  
     # Speed used to rotate in place while scanning for the box
-    wiggle_speed: int = 15
+    wiggle_speed: int = 10
  
     # Duration of each wiggle half-swing.
     wiggle_duration: float = 0.1
  
     # Number of full left-right-centre cycles before giving up the box search
     wiggle_retries: int = 3
+      
+    wiggle_center_delay: float = 0.02 
 
  
     # RETREAT
@@ -256,7 +526,7 @@ class LedgeConfig:
  
     # Speed at which to reverse.
     retreat_speed: int = -30
-    wiggle_center_delay: float = 0.15 
+    
  
  
  
@@ -275,22 +545,13 @@ class LedgePickupResult(Enum):
     ALIGNMENT_TIMEOUT    = auto()  # Could not square up to the ledge in time
     NAV_FAILED           = auto()  # Could not navigate to the ledge at all
 
-def navigate_to_ledge_position(
+def navigate_to_initial_ledge_position(
     creep: CreepRobot,
     obj: Object,
-    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG,) -> bool:
+    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> bool:
     """
-    Drive from the robot's current position to a point directly in front of
-    the ledge (d cm along the ledge's outward normal), ready for alignment.
-    Coordinate frame: x = right, y = forward (robot-centric, top-down).
-    obj.h_angle: degrees, 0 = ahead, positive = right.
-    obj.yaw:     degrees, 0 = marker facing robot square-on,
-                 positive = clockwise from marker's outward perspective
-                 (= counterclockwise from robot's view).
-    Returns True if all manoeuvres completed, False if any timed out.
+    Drive from the robot's current position to a point that is near enough where sonar might be working
     """
-
-    creep.Arm_Extend(1)
     
     turn_angle  = obj.h_angle
     drive_dist  = obj.position - cfg.initial_dist_to_ledge
@@ -300,6 +561,7 @@ def navigate_to_ledge_position(
     )
     creep.Doors_close()
     creep.Arm_tilt_up()
+    
     # Step 1 — turn to face the approach point
     if abs(turn_angle) > 1.0:
         ok = creep.turn_speed_angle(30 * sign(turn_angle), abs(turn_angle))
@@ -316,28 +578,6 @@ def navigate_to_ledge_position(
     print("[navigate_to_ledge_position] complete")
     return True
 
-def get_pos_with_sonar(creep: CreepRobot,
-    cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG):
-    in_position = True
-    print("USING SONAR")
-    L = creep.left_front_sonar(cfg.sonar_samples) - cfg.target_dist_to_ledge
-    R = creep.right_front_sonar(cfg.sonar_samples) - cfg.target_dist_to_ledge
-    speed1 = speed2 = 0
-    if abs(L) >= cfg.distance_alignment_tolerance:
-        speed1 = cfg.alignment_drive_speed * sign(L)
-        in_position = False
-    if abs(R) >= cfg.distance_alignment_tolerance:
-        speed2 = cfg.alignment_drive_speed * sign(R)
-        in_position = False
-    
-    turn_angle = math.atan2(L - R, cfg.sonar_separation)
-    if abs(turn_angle) >= cfg.angle_alignment_tolerance:
-        speed1 += turn_angle * 0.5
-        speed2 -= turn_angle * 0.5
-        in_position = False
-
-    return (speed1, speed2, in_position)
-
 
 def square_to_ledge(
     creep: CreepRobot,
@@ -346,104 +586,23 @@ def square_to_ledge(
     """
     """
     creep.Doors_close()
-    print("[square_to_ledge] phase 1 — camera-guided approach")
-    markers = creep.find_objects(obj.type)
-    current = None
+    result = get_normal_to_ledge(creep, obj, cfg.target_dist_to_ledge)
+    if result is None:
+        result = get_normal_to_token(creep, obj, cfg.target_dist_to_ledge)
+   
+    distance_to_move = result[0]
+
+    angle_to_move = result[1]
     
-    if markers is None:
-        return False
+    final_turn_angle = result[2]
 
-    for marker in markers:
-        if marker.id == obj.id:
-            current = marker
 
-    if current is None:
-        return False
-            
-
-    L = creep.left_front_sonar(cfg.sonar_samples)
-    R = creep.right_front_sonar(cfg.sonar_samples)
-    spread = L - R
-
-    a = math.degrees(math.atan2(spread, cfg.sonar_separation))
-
-    r = cfg.target_distance_in_front_of_box
-    d = current.position
-    h = current.h_angle
-
-    distance_to_move = math.sqrt(d**2 + r**2 - 2 * d * r * math.cos(math.radians(a - h)))
-
-    angle_to_move = math.degrees(math.asin(math.sin(math.radians(a - h)) * r / distance_to_move))
-    print(angle_to_move)
-
-    creep.turn_speed_angle(15 * sign(angle_to_move), abs(angle_to_move))
+    creep.turn_speed_angle(16 * sign(angle_to_move), abs(angle_to_move))
     creep.drive_speed_distance(30 , distance_to_move)
+    creep.turn_speed_angle(16 * sign(angle_to_move), abs(final_turn_angle))
 
-    final_turn_angle = (a - h) - angle_to_move
+    get_in_position(creep)
 
-    creep.turn_speed_angle(15 * sign(angle_to_move), abs(final_turn_angle))
-    print(final_turn_angle)
-
-
-    markers = creep.find_objects(obj.type)
-    current = None
-
-    if markers is not None:
-        for marker in markers:
-            if marker.id == obj.id:
-                current = marker
-    
-    in_position = False
-
-    while not in_position:
-        in_position = True
-
-        if current is None:
-            data_from_sonar = get_pos_with_sonar(creep, cfg)
-            in_position = data_from_sonar[2]
-            speed1 = data_from_sonar[0]
-            speed2 = data_from_sonar[1]
-
-        else:
-            print("USING CAMERA")
-            turn_angle = current.h_angle
-            drive_dist = current.position - cfg.target_dist_to_ledge
-
-            if abs(drive_dist) >= cfg.distance_alignment_tolerance:
-                speed1 = speed2 = cfg.alignment_drive_speed * sign(drive_dist)
-                in_position = False
-            else:
-                speed1 = speed2 = 0
-            
-
-            if abs(turn_angle) >= cfg.angle_alignment_tolerance:
-                speed1 += turn_angle * 0.5
-                speed2 -= turn_angle * 0.5
-                in_position = False
-
-
-
-        creep.drive_both(round(speed1), round(speed2))
-
-        # IR check after every movement
-        if box_is_present(creep, cfg):
-            print("[square_to_ledge] IR triggered in camera phase — centering")
-            creep.drive_speed_distance(cfg.alignment_drive_speed,
-                                       cfg.target_dist_to_ledge)
-            return True
-        
-        
-        markers = creep.find_objects(obj.type)
-        current = None
-
-        if markers is not None:
-            for marker in markers:
-                if marker.id == obj.id:
-                    current = marker
-
-    # ── Phase 3: wiggle fallback ──────────────────────────────────────────────
-    print("[square_to_ledge] phase 3 — wiggle fallback")
-    return scan_for_box_on_ledge(creep, cfg)
 
 
 
@@ -457,11 +616,14 @@ def scan_for_box_on_ledge(
     seconds before stopping so the arm centre lands on the box.
     """
     print(f"[scan_for_box_on_ledge] searching with {cfg.wiggle_retries} retry cycles")
-    if box_is_present(creep, cfg):
-        print("[scan_for_box_on_ledge] box found at centre immediately")
-        time.sleep(cfg.wiggle_center_delay)
-        creep.motor_stop()
-        return True
+    creep.Arm_Extend(1)
+    
+    while has_arm_finished(creep) == False:
+      if box_is_present(creep, cfg):
+          print("[scan_for_box_on_ledge] box found at centre immediately")
+          creep.Arm_Extend(0)
+          return True
+        
     for attempt in range(cfg.wiggle_retries):
         print(f"  [attempt {attempt + 1}/{cfg.wiggle_retries}]")
         # WIGGLE RIGHT
@@ -534,7 +696,7 @@ def grip_box(
     # Give a short dwell for the arm to reach its down position and for the sucker to make firm contact before we start checking pressure.
     time.sleep(0.3)
  
-    if confirm_grip(creep, cfg):
+    if confirm_grip(creep):
         print("[grip_box] box gripped")
         return True
     else:
@@ -626,19 +788,18 @@ def retract_with_box(
         time.sleep(0.05)
  
     creep.Arm_Stop()
-    time.sleep(0.2)
+    creep.VacValve("VENT")
+    creep.VacPump(0)
+    
+    # pull box back in
+    creep.Arm_tilt_up()
+    while not has_arm_finished(creep) and box_is_present(creep):
+        creep.Arm_Extend(1)
+    creep.Arm_tilt_down()
+    creep.Arm_Retract(1)
+    
  
-    # FINAL GRIP CHECK
-    if creep.sucker_gripping():
-        print("[retract_with_box] arm retracted with box secured")
-        return True
-    else:
-        print("[retract_with_box] final grip check failed: box may have been lost")
-        creep.VacPump(0)
-        creep.VacValve("VENT")
-        time.sleep(0.2)
-        creep.VacValve("GRIP")
-        return False
+    
     
 
 def has_arm_finished(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> bool:
@@ -667,13 +828,6 @@ def retreat_from_ledge(
     creep.drive_speed_distance(-abs(cfg.retreat_speed), cfg.retreat_distance)
 
 
-def clamp(number: float) -> float:
-    """
-    Sets min and max of a number at -1 and 1 respectively
-    """
-    return max(min(number, 1), -1)
-
-
 def collect_box_from_ledge(creep: CreepRobot, obj: Object | None, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> LedgePickupResult:
     """
     Master entry-point for all ledge related functions.
@@ -682,16 +836,18 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object | None, cfg: LedgeConf
 
     The robot will then retreat *cfg.retreat_distance* from the centre pillion, ready for further collection attempts.
     """
-    if not navigate_to_ledge_position(creep, obj, cfg):
+    if not navigate_to_initial_ledge_position(creep, obj, cfg):
         return LedgePickupResult.NAV_FAILED
     # square_to_ledge now handles camera → sonar → wiggle internally.
     # Returns True only when the box is found and the arm is centred.
-    if not square_to_ledge(creep, obj, cfg):
-        return LedgePickupResult.NO_BOX_FOUND      # ← was ALIGNMENT_TIMEOUT
+    if not square_to_ledge(creep, obj):
+        return LedgePickupResult.ALIGNMENT_TIMEOUT      # ← was ALIGNMENT_TIMEOUT
     # ← REMOVE the scan_for_box_on_ledge call that was here
+    if not scan_for_box_on_ledge(creep:
+        return LedgePickupResult.NO_BOX_FOUND
     if not pick_up_box(creep):
         return LedgePickupResult.GRIP_FAILED
-    # if not retract_with_box(creep, cfg):           # ← bug 3 fixed
+    # if not retract_with_box(creep, cfg):          =
     #     return LedgePickupResult.GRIP_LOST_ON_RETRACT
     retreat_from_ledge(creep, cfg)                 # ← bug 4 fixed
     print("Box successfully collected from ledge.")

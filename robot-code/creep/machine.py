@@ -32,6 +32,7 @@ import statistics
 import numpy as np
 from math import cos, sin, pi, sqrt, atan2
 import serial.tools.list_ports
+import statistics
 
 # These coordinates are correct for the 2025-2026 game. List starts at marker '0' to marker 19
 MARKER_COORDS = \
@@ -39,6 +40,23 @@ MARKER_COORDS = \
     ,[458,76],[458,153],[458,229],[458,305],[458,381] \
     ,[381,458],[305,458],[229,458],[153,458],[76,458] \
     ,[0,381],[0,305],[0,229],[0,153],[0,76]]
+
+# Wall: list of x,y coordinates of the markers along each wall
+# Each marker is spaced 76.25±20 mm apart and there are 5 on each wall
+# Converted to cm
+ARENA_MARKER_COORS = {
+    0: {0: (76.25, 457.5), 1: (152.5, 457.5), 2: (228.75, 457.5), 3: (305.0, 457.5), 4: (381.25, 457.5)},
+    1: {5: (457.5, 381.25), 6: (457.5, 305.0), 7: (457.5, 228.75), 8: (457.5, 152.5), 9: (457.5, 76.25)},
+    2: {10: (381.25, 0.0), 11: (305.0, 0.0), 12: (228.75, 0.0), 13: (152.5, 0.0), 14: (76.25, 0.0)},
+    3: {15: (0.0, 76.25), 16: (0.0, 152.5), 17: (0.0, 228.75), 18: (0.0, 305.0), 19: (0.0, 381.25)}
+}
+
+def get_marker_wall(id):
+    return id // 5
+
+
+
+get_marker_coords = lambda marker_id: ARENA_MARKER_COORS[marker_id // 5][marker_id]
 
 class ObjectType(Flag):
     TOKEN = auto()
@@ -48,6 +66,7 @@ class ObjectType(Flag):
     ARENA_MARKER = auto()
 
     IGNORE = auto()
+    ANY = ACID_TOKENS | BASE_TOKENS | ARENA_MARKER
 
 class Object:
     def __init__(self, id: int, position: float, h_angle: float, v_angle: float, yaw: float, pitch: float, roll: float):
@@ -94,6 +113,8 @@ class CreepRobot():
     # This routine examines the devices connected to the USB ports of the Pi4
     # The name of the device (e.g USB-ISS for the USB to I2C interface adaptor) is passed to the routine
     # If the device is found it prints out the tty.device_node, Vendor ID (VID) and Product ID (PID)
+
+    corner_markers = [0,19,4,5,9,10,14,15]
 
     def find_ports(self, portname: str) -> tuple[str, str]:
         """
@@ -387,7 +408,9 @@ class CreepRobot():
         #print ("encoder 1  value = ",encoder_1())
         #print ("encoder 2  value = ",encoder_2())
         return True
+    
 
+    
     def drive_actual_speed_distance(self, speed: float, distance: float) -> bool:
         """
         Speed is measured in cm
@@ -612,11 +635,10 @@ class CreepRobot():
             time.sleep(0.065)  # minimum safe delay between pings
 
         distance = statistics.mean(readings)
-        # print("Right sonar: " + str(distance))
+        print("Left sonar: " + str(distance))
         # maybe use the median? might have better noise rejection
         return distance
-    
-    
+
     def right_front_sonar(self, samples=1) -> float:
         """
         Returns distance in cm from right sensor. 
@@ -653,26 +675,51 @@ class CreepRobot():
             time.sleep(0.065)  # minimum safe delay between pings
 
         distance = statistics.mean(readings)
-        # print("Right sonar: " + str(distance))
+        print("Right sonar: " + str(distance))
         # maybe use the median? might have better noise rejection
         return distance
-    
 
-    def rear_sonar(self): # base address of F0 (write), F1 (read)
-        # trigger ranging
-        self.ser.write( b"\x55\xF0\x00\x01\x51" )
-        n = self.ser.read(1)  #get acknowledge
-        time.sleep(.1)
-        # set I2C device to read and read two bytes from register 2/3 (target 1)
-        self.ser.write( b"\x55\xF1\x02\x02" ) # 2 bytes, register auto-increments
-        n = self.ser.read(2)
-        decoded_n = n.decode()
-        #print ("n undecoded = ",n)
-        targ1_hi = (n[0])
-        targ1_lo = (n[1])
-        rear_sonar_range = targ1_lo + (targ1_hi << 8)
-        print ("rear sonar range  = ", rear_sonar_range)
-        return rear_sonar_range
+
+    def rear_sonar(self, samples=1) -> float:
+        """
+        Returns distance in cm from rear sensor.
+        
+        For more accuracy several samples can be taken which will be averaged together.
+        """
+
+        readings = []
+
+        for _ in range(samples):
+            # trigger in cm
+            self.ser.write(b"\x55\xF0\x00\x01\x52")
+            self.ser.read(1)  # acknowledge
+
+            # wait until measurement complete
+            while True:
+                self.ser.write(b"\x55\xF1\x00\x01")  # read register 0
+                status = self.ser.read(1)
+                if status != b'\xff':  # 0xFF means busy
+                    break
+                time.sleep(0.01)
+
+            # Read range registers 2 & 3
+            self.ser.write(b"\x55\xF1\x02\x02")
+            n = self.ser.read(2)
+
+            targ1_hi = n[0]
+            targ1_lo = n[1]
+
+            distance = (targ1_lo + (targ1_hi << 8)) * self.speedofsound() / 10000 / 2
+
+            readings.append(distance)
+
+            time.sleep(0.065)  # minimum safe delay between pings
+
+        distance = statistics.mean(readings)
+        print("Rear sonar: " + str(distance))
+
+        # maybe use the median? might have better noise rejection
+        return distance
 
     #_______________________________________________________________________________
     # Sharp IR range sensor GP2Y0E03
@@ -848,8 +895,8 @@ class CreepRobot():
         Finds all objects of certain type in the camera's vision
         '''
         angle_correction = 0
-        camera_vertical_height = 48
-        camera_horizontal_offset = 36
+        camera_vertical_height = 44.5
+        camera_horizontal_offset = 5
 
         self.robot.kch.leds[LED_A].colour = Colour.OFF
         self.robot.kch.leds[LED_B].colour = Colour.OFF
@@ -919,6 +966,115 @@ class CreepRobot():
             (Note.E7, 0.4),
         ]
         self.play(jingle, pause=0.06)
+    
+
+    #       drive_speed_distance_objchk(speed, distance, object_detect_range)
+    # Drive in a straight line at a defined speed (-128 to +127)
+    # Drive for a defined distance in centimetres or obstruction detected (object_detect_range)
+    # by front sonar (define left or right) Object detection uses rear sonar when reversing
+    # Returns object detected, distance requested, distance driven and distance remaining
+    # Drive times out after a calculated time is exceeded (speed, distance based)
+
+    def drive_speed_distance_objchk(self, speed, distance, object_detect_range):
+        # nominal speed of robot at speed 32 = 25cm/s (at speed 32)
+        # adjust for accel/decel times etc and add a 1 second margin
+        if speed != 0 :
+            drive_timeout_time = (((distance * 32) / 22) /abs(speed)) +2
+        else :
+            drive_timeout_time = 15.0 #default drive timeout time
+        if distance <= 0:
+            distance = 0
+            move = False
+            return
+        global max_encoder
+        global wheel_diameter
+        global drive_time_out
+        global object_detected
+        drive_time_out = False
+        object_detected = False
+        print ("in drive_speed_distance_objchk, will reset both encoders")
+        object_detected = False
+        range_detected = 0
+        # convert distance to an encoder value
+        required_distance_encoder_value = int((distance / (self.wheel_diameter * 3.142)) * 360)
+        # reset encoders to 0
+        self.reset_both_encoders()
+        time.sleep(.1)
+        # start motors
+        time_started_drive = time.time() # gets time when drive was started
+        self.drive_sync(speed, 0)
+        time.sleep(.1) #important ??
+        #If speed > 0 (OK but if <0 then need to correct encoder for -ve values)
+        move = False
+        encoder1 = self.encoder_1()
+        if speed > 0 :
+            while ((self.encoder_1() < required_distance_encoder_value \
+            or self.encoder_2() < required_distance_encoder_value))\
+            and ((time.time() - time_started_drive) < drive_timeout_time ):
+        #while (encoder_1() < required_distance_encoder_value) and (front_sonar() > object_detect_range):
+        #distance_driven = (encoder_1() * wheel_diameter * 3.142)/360
+                range_detected_front_left = self.left_front_sonar()
+                move = True
+                if (range_detected_front_left <= object_detect_range):
+                    object_detected = True
+                    print ("sonar front left detected at ", range_detected_front_left)
+                    print ("sonar front right detected at ", range_detected_front_right)
+                    break
+                
+                range_detected_front_right = self.right_front_sonar()
+                if (range_detected_front_right <= object_detect_range):
+                    object_detected = True
+                    print ("sonar front left detected at ", range_detected_front_left)
+                    print ("sonar front right detected at ", range_detected_front_right)
+                    break    
+
+        elif speed < 0 :
+            #print ("sonar rear ",rear_sonar())
+            while(((self.encoder_1()) > (self.max_encoder - required_distance_encoder_value) \
+            or (self.encoder_2()) > (self.max_encoder - required_distance_encoder_value)))\
+            and ((time.time() - time_started_drive) < drive_timeout_time):
+            #while (encoder_1()-0) > (max_encoder - required_distance_encoder_value):
+                range_detected_rear = 10000
+                range_detected_rear = self.rear_sonar()
+                move = True
+                        
+                if range_detected_rear <= object_detect_range :
+                    object_detected = True
+                    print ("object detect range ", object_detect_range)
+                    print ("sonar rear detected at ", range_detected_rear)
+                    print ("object detected during loop")
+                    break
+            print (" I have exited the reverse drive_objchk loop " )               
+        if (time.time() - time_started_drive) > drive_timeout_time :
+            drive_time_out = True
+            
+            print ("Drive timed out in ",(time.time() - time_started_drive)," secs")
+        
+        else :
+            move = False
+        # demanded distance achieved or object detected, stop motors
+        self.motor_stop()
+        time.sleep(.1)
+            
+        if speed >0 :
+            distance_driven = round(((self.encoder_1() * self.wheel_diameter * 3.142)/360),2)
+            if object_detected == True:
+                print ("object at front left ", range_detected_front_left)
+                print ("object at front right", range_detected_front_right)
+            
+        elif speed < 0:
+            distance_driven = round((((self.max_encoder - self.encoder_1()) * self.wheel_diameter * 3.142)/360),2)
+            if object_detected == True:
+                print("object at rear ", range_detected_rear)
+            
+        distance_to_go = round ((distance - distance_driven),2)
+        #print "Calculated drive time-out = ", drive_timeout_time
+        #print "Time for drive = ", (time.time() - time_started_drive), " secs"
+        #print "distance ", distance
+        #print "distance_driven ", distance_driven
+        #print "distance to go ", distance_to_go
+        
+        return object_detected, range_detected, distance, distance_driven, distance_to_go 
 
     #_______________________________________________________________________________
 
@@ -941,7 +1097,7 @@ class CreepRobot():
         self.wheelspace = 37.9 # 37.9 new robot,31.5 tracks,34.60 for old robot,36.75 for 2020 test base
         self.wheel_diameter = 9.5 # 10.8 for new robot, 10 without tyres,5.10 tracks,10.50 for 10cm wheel with tyre
         self.max_encoder = 4294967295 # required when encoder value <0
-        self.camera_servo_offset_value = 0 # +ve offset anti-clock
+        self.camera_servo_offset_value = -2 # +ve offset anti-clock
         #...............................................................................
         self.my_corner = 0 # Will be set by competition dongle with R.zone
         # The following variables are used by the MD25 motor drive board
@@ -996,7 +1152,7 @@ class CreepRobot():
         self.robot.servo_board.servos[3].set_duty_limits(500,2500) # Set up servo parameters
 
         if (center_components):
-            self.camera_pan(0)   # centre camera
+            self.camera_pan(90)   # rotate camera to fit in 50 cm
             self.LH_door(-93)    # close LH door
             self.RH_door(90)     # close RH door
             #Arm_tilt("UP")  # Arm at max tilt
@@ -1004,16 +1160,19 @@ class CreepRobot():
             self.Arm_Retract(1)  # Retract arm, full speed
             self.VacValve("GRIP") # Allow suction (valve unpowered)
             self.VacPump(0)      # Vac pump stopped
-            print("doors closed,camera centred,arm raised/retracted, Vac & Valve 'OFF'")
+            print("doors closed,camera turned,arm raised/retracted, Vac & Valve 'OFF'")
 
         robot_mode = DEV
-        #my_corner = robot.zone #set corner in robot set-up
-        #robot_mode = robot.mode # returns DEV or COMP (no parentheses)
+
+        # THIS SHOULD BE CHANGED DURING COMPETITION
+        # my_corner = self.robot.zone #set corner in robot set-up
+        # robot_mode = self.robot.mode # returns DEV or COMP (no parentheses)
+
+
         #             MUST CHECK THESE LINES FOR COMPETTION MODE
         #  FOR TEST PURPOSES ONLY +++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # This code is for safety but may be removed
-        #my_corner = robot.zone
-        #robot_mode = robot.mode
+
         #my_lab = []
         if robot_mode == DEV:
             my_mode = "DEV"
@@ -1039,6 +1198,8 @@ class CreepRobot():
         print ("I am in",my_mode,"mode")    
         print ("Selected starting corner = ",self.my_corner)
         print ("my_lab  ", self.my_lab)
+
+
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         #robot.wait_start() #        Waiting for start button to be pressed
         #&&&&&&&&&&&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'
@@ -1058,10 +1219,4 @@ class CreepRobot():
         self.startup_jingle()
         self.robot.wait_start()
 
-        self.go_home_time = 90 # time to start going home in seconds (1.5 mins = 90 secs)
 
-    def can_continue(self):
-        if (time.time() - self.time_started_game) < self.go_home_time:
-            return True
-        else:
-            return False
