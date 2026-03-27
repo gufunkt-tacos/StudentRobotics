@@ -1239,11 +1239,19 @@ class CreepRobot():
         # *********************** Relocated R.wait_start() ****************************
         self.time_elapsed = time.time() - self.time_started_robot    # Time from initial switch on for initialisatiom 
         print ("Initialised in ",round(self.time_elapsed,0)," seconds")
+        
+        self.startup_jingle()
+        self.robot.wait_start()
+
         self.time_started_game = time.time()   #  Get time when START switch pressed
         print("Game timer started")
         print("")
         print("")
-        self.startup_jingle()
-        self.robot.wait_start()
 
+        self.go_home_time = 90 # time to start going home in seconds (1.5 mins = 90 secs)
 
+    def can_continue(self):
+        if (time.time() - self.time_started_game) < self.go_home_time:
+            return True
+        else:
+            return False
