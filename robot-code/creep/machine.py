@@ -28,6 +28,7 @@ from sr.robot3 import * # New SR code based on Python 3.11 (I'm using 3.12.2)
 import time
 import serial   # ignore import error if you get one
 import math
+import statistics
 import numpy as np
 from math import cos, sin, pi, sqrt, atan2
 import serial.tools.list_ports
@@ -65,6 +66,7 @@ class ObjectType(Flag):
     ARENA_MARKER = auto()
 
     IGNORE = auto()
+    ANY = ACID_TOKENS | BASE_TOKENS | ARENA_MARKER
 
 class Object:
     def __init__(self, id: int, position: float, h_angle: float, v_angle: float, yaw: float, pitch: float, roll: float):
@@ -154,7 +156,7 @@ class CreepRobot():
         resp = 0
         self.ser.write( b"\x55\xB2\x10\x01\x32" )  # b required to change unicode to bytes
         n = self.ser.read(1) #  get acknowledge, doesn't really matter about the format
-        resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
+        resp = n[0] # 0 is not OK (0) !0 is OK (1)
         #print("response = ",resp)
         if resp != 0:
             print ("Motor timeout disabled")
@@ -172,7 +174,7 @@ class CreepRobot():
 
         self.ser.write( b"\x55\xB2\x10\x01\x33" )  # b required to change unicode to bytes
         n = self.ser.read(1) # get acknowledge
-        resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
+        resp = n[0] # 0 is not OK (0) !0 is OK (1)
         if resp != 0 :
             print ("Motor timeout enabled")
         return
@@ -191,7 +193,7 @@ class CreepRobot():
         self.ser.write(b"\x55\xB2\x10\x01\x20")  # b required to change unicode to bytes
         #time.sleep(.1)
         n = self.ser.read(1) # get acknowledge
-        resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
+        resp = n[0] # 0 is not OK (0) !0 is OK (1)
         if resp == 0 :
             print ("wheel encoders reset failed")
         if resp != 0 :
@@ -256,7 +258,7 @@ class CreepRobot():
 
         self.ser.write(bytes([0x55, 0xB2, 0x10, 0x01, acelrate]))
         n = self.ser.read(1) # get acknowledge
-        resp = str(n[0]) # 0 is not OK (0) !0 is OK (1)
+        resp = n[0] # 0 is not OK (0) !0 is OK (1)
         time.sleep(0.1)
         if resp != 0 :
             print ("Accel rate set at ", acelrate)
@@ -355,7 +357,7 @@ class CreepRobot():
         """
         Drive in a straight line at a defined speed (-128 to +127)
 
-        Should be used in CENTIMETRES NOT MILLIMETRES AAAAAAARGH.
+        Should be used in centimetres.
 
         Resets both encoders at start of routine.
         Drive in a straight line at a defined speed (-128 to +127).
@@ -411,9 +413,9 @@ class CreepRobot():
     
     def drive_actual_speed_distance(self, speed: float, distance: float) -> bool:
         """
-        Speed is measured in mm/s
+        Speed is measured in cm
 
-        Distance is measured in mm
+        Distance is measured in cm
 
         Equivalent in practice to drive_steprate_distance
         """
@@ -459,7 +461,7 @@ class CreepRobot():
         # central axis turn at rate set by speed
         time_started_turn = time.time() # gets time when turn was started
         self.drive_sync(0, speed)
-        time.sleep(.3)
+        # time.sleep(.3) this is not needed and adds significant issues
         # select encoder which has increasing value
         if speed < 0 :
             while self.encoder_2() < angle_encoder * angle \
@@ -1093,7 +1095,7 @@ class CreepRobot():
 
         #These variables need to be defined as global within the functions that use them
         self.wheelspace = 37.9 # 37.9 new robot,31.5 tracks,34.60 for old robot,36.75 for 2020 test base
-        self.wheel_diameter = 10.8 #10.8 for new robot, 10 without tyres,5.10 tracks,10.50 for 10cm wheel with tyre
+        self.wheel_diameter = 9.5 # 10.8 for new robot, 10 without tyres,5.10 tracks,10.50 for 10cm wheel with tyre
         self.max_encoder = 4294967295 # required when encoder value <0
         self.camera_servo_offset_value = -2 # +ve offset anti-clock
         #...............................................................................
