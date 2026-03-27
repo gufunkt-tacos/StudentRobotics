@@ -7,6 +7,7 @@ def main():
     creep = CreepRobot()
     creep.initialise()
     strategy_base(creep)
+    go_home_norm(creep)
 
 if __name__ == "__main__":
     main()
