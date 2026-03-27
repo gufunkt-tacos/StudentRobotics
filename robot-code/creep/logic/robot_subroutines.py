@@ -423,10 +423,10 @@ def is_on_floor(creep: CreepRobot, obj: Object) -> bool:
     h = math.sin(math.radians(a)) * d_slant + CAMERA_HEIGHT
 
     if h >= THRESHOLD:
-        creep.LED_A_blue
+        creep.LED_A_blue()
         return False
 
-    creep.LED_B_green
+    creep.LED_B_green()
     return True
 
 
