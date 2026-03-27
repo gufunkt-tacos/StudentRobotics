@@ -137,17 +137,18 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
     
     creep.turn_speed_angle(5*sign(token_angle), (abs(token_angle)/scaling)/2)
 
-    creep.drive_speed_distance(40, closest_token_dist - 20)
+    creep.drive_speed_distance(40, closest_token_dist - 30)
     
     if open_doors:
         creep.Doors_open()
-        creep.drive_speed_distance(40, 60)
+        creep.drive_speed_distance(40, 70)
         creep.Doors_close()
         creep.Doors_wedge()
     else:
         creep.Doors_wedge()
-        creep.drive_speed_distance(40, 60)
+        creep.drive_speed_distance(40, 50)
 
+    return
 
 def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> None:
     """
@@ -163,19 +164,18 @@ def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) 
         R = creep.right_front_sonar()
 
         # distance
-        dist_error = ((L + R) / 2) - TARGET_DIST
+        dist_error = min(L, R) - TARGET_DIST
 
         # angle
         markers = creep.find_objects(ObjectType.ANY)
         current = None
-        if markers is not None:
+        if markers is not None and len(markers) > 0:
             current = min(markers, key=lambda m: m.position)
 
-        angle_error = (
-            SONAR_SEPARATION * math.tan(math.radians(current.h_angle))
-            if current is not None
-            else (L - R)
-        )
+        if current is None:
+            angle_error = 0
+        else:
+            angle_error = SONAR_SEPARATION * math.tan(math.radians(current.h_angle))
 
         # check if done
         if abs(dist_error) < DIST_TOL and abs(angle_error) < ANGLE_TOL:
@@ -257,7 +257,8 @@ def collect_ledge_token(creep: CreepRobot):
 
 def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     #turn towards platform
-    creep.turn_speed_angle(16*sign(angle_to_ledge),abs(angle_to_ledge))
+    print("We just did a 90.")
+    creep.turn_speed_angle(16 * sign(angle_to_ledge), abs(angle_to_ledge))
     #close door so we can get closer
     creep.Doors_close()
     #reverse away from platform - why do we do this?
@@ -274,15 +275,28 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
 
     # Try to find the token again after turning, to get another reading
     new_closest_token = find_closest_token(creep, type, 0)
-    if new_closest_token:
+    if new_closest_token is not None:
         closest_token_dist = new_closest_token.position
         new_token_angle = new_closest_token.h_angle
+    else:
+        closest_token_dist = 0
+        new_token_angle = 0
     
     creep.turn_speed_angle(5*sign(new_token_angle), abs(new_token_angle)/2)
 
-    creep.drive_speed_distance_objchk(24,120,25)
+    creep.drive_speed_distance_objchk(24,120, 40)
     creep.motor_stop()
-    collect_ledge_token(creep)
+    # collect_ledge_token(creep)
+
+    token_to_square = new_closest_token if closest_token is None else closest_token
+    if token_to_square is not None:
+        square_to_ledge(creep, token_to_square)
+    else:
+        square_to_ledge(creep, None)
+
+    get_in_position(creep)
+    pick_up_box(creep)
+
 
     # add clearance for doors
     creep.drive_speed_distance(-16, 10)
@@ -391,10 +405,10 @@ def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float, cf
       return None
 
     r = distance_away 
-    d = obj.position
+    d = obj.position if obj is not None else (L + R) / 2
     y = math.degrees(math.atan2(spread, SONAR_SEPARATION))
-    h = obj.h_angle
-
+    h = obj.h_angle if obj is not None else 0
+ 
     # apply cosine rule to get distance
     distance_to_move = math.sqrt(d**2 + r**2 - 2 * d * r * math.cos(math.radians(h - y)))
 
@@ -727,6 +741,8 @@ def square_to_ledge(
     """
     creep.Doors_close()
     result = get_normal_to_ledge(creep, obj, cfg.target_dist_to_ledge)
+    if result is None and obj is None:
+        return False
     if result is None:
         result = get_normal_to_token(creep, obj, cfg.target_dist_to_ledge)
    
@@ -953,6 +969,7 @@ def has_arm_finished(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG)
     measurement noise.
     """
     current = creep.robot.motor_boards["SR0VJ1K"].motors[1].current
+    print(current)
     return current <= cfg.arm_stall_current
 
 

@@ -467,7 +467,7 @@ class CreepRobot():
         # central axis turn at rate set by speed
         time_started_turn = time.time() # gets time when turn was started
         self.drive_sync(0, speed)
-        # time.sleep(.3) this is not needed and adds significant issues
+        time.sleep(.1) # this is not needed and adds significant issues
         # select encoder which has increasing value
         if speed < 0 :
             while self.encoder_2() < angle_encoder * angle \
