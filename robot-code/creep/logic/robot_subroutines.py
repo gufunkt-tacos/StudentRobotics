@@ -102,7 +102,7 @@ def sign(x):
 
 def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float = 0.0) -> Object | None:
     valid_tokens = creep.find_objects(type)
-    if valid_tokens is not None:
+    if valid_tokens is not None and len(valid_tokens) > 0:
         closest_token = valid_tokens[0]
         for i in range(0,len(valid_tokens)):
             if(valid_tokens[i].position < closest_token.position):
@@ -260,7 +260,6 @@ def collect_ledge_token(creep: CreepRobot):
 
 def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     #turn towards platform
-    print("We just did a 90.")
     creep.turn_speed_angle(16 * sign(angle_to_ledge), abs(angle_to_ledge))
     #close door so we can get closer
     creep.Doors_close()
@@ -382,7 +381,7 @@ def get_normal_to_token(creep: CreepRobot, obj: Object, distance_away: float) ->
 
     final_turn = (h - angle_to_move) - y
 
-    return (distance_to_move, angle_to_move, final_turn)
+    return (distance_to_move, -angle_to_move, -final_turn)
 
 def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> tuple[float, float, float] | None:
     """
@@ -455,6 +454,7 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
     # Pan left, centre, right before moving
     for pan_angle in [0, 45, -45]:
         creep.camera_pan(pan_angle)
+        time.sleep(2)
         markers = creep.find_objects(ObjectType.ARENA_MARKER)
         if markers:
             home_markers = [m for m in markers if m.id in creep.my_lab]
