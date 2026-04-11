@@ -1230,7 +1230,7 @@ class CreepRobot():
             self.VacPump(0)      # Vac pump stopped
             print("doors closed,camera turned,arm raised/retracted, Vac & Valve 'OFF'")
 
-        robot_mode = COMP
+        robot_mode = DEV
 
         # THIS SHOULD BE CHANGED DURING COMPETITION
         # my_corner = self.robot.zone #set corner in robot set-up
@@ -1240,6 +1240,24 @@ class CreepRobot():
         #             MUST CHECK THESE LINES FOR COMPETTION MODE
         #  FOR TEST PURPOSES ONLY +++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # This code is for safety but may be removed
+
+
+
+        #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+        #robot.wait_start() #        Waiting for start button to be pressed
+        #&&&&&&&&&&&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'
+
+        #my_corner = 0
+        #my_corner = robot.zone #set corner in robot set-up
+        #robot_mode = robot.mode # returns DEV or COMP (no parentheses)
+
+        #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+        # *********************** Relocated R.wait_start() ****************************
+        self.time_elapsed = time.time() - self.time_started_robot    # Time from initial switch on for initialisatiom 
+        print ("Initialised in ",round(self.time_elapsed,0)," seconds")
+        
+        self.startup_jingle()
+        self.robot.wait_start()
 
         self.my_lab = []
         if robot_mode == DEV:
@@ -1271,23 +1289,6 @@ class CreepRobot():
 
 
         self.preferred_nav_markers = self.precalculate_preferred_markers()
-
-
-        #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        #robot.wait_start() #        Waiting for start button to be pressed
-        #&&&&&&&&&&&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'&&'
-
-        #my_corner = 0
-        #my_corner = robot.zone #set corner in robot set-up
-        #robot_mode = robot.mode # returns DEV or COMP (no parentheses)
-
-        #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        # *********************** Relocated R.wait_start() ****************************
-        self.time_elapsed = time.time() - self.time_started_robot    # Time from initial switch on for initialisatiom 
-        print ("Initialised in ",round(self.time_elapsed,0)," seconds")
-        
-        self.startup_jingle()
-        self.robot.wait_start()
 
         self.camera_pan(0)
 
