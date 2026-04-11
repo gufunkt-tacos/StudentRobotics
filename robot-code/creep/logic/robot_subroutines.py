@@ -136,7 +136,8 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
     token_angle = closest_token.h_angle
    
     print(closest_token_dist)
-    creep.turn_speed_angle(10*sign(token_angle), abs(token_angle)/scaling)
+    if not creep.turn_speed_angle(10*sign(token_angle), abs(token_angle)/scaling):
+        return False
 
     # Try to find the token again after turning, to get another reading
     new_closest_token = find_closest_token(creep, type, 0)
@@ -144,19 +145,23 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
         closest_token_dist = new_closest_token.position
         token_angle = new_closest_token.h_angle   
     
-    creep.turn_speed_angle(5*sign(token_angle), (abs(token_angle)/scaling)/2)
+    if not creep.turn_speed_angle(5*sign(token_angle), (abs(token_angle)/scaling)/2):
+        return False
 
-    creep.drive_speed_distance(40, closest_token_dist - 30)
+    if not creep.drive_speed_distance(40, closest_token_dist - 30):
+        return False
     
     if open_doors:
         open_door_thread = Thread(target=creep.Doors_open)
         open_door_thread.start()
-        creep.drive_speed_distance(40, 50)
+        if not creep.drive_speed_distance(40, 50):
+            return False
         creep.Doors_close()
         creep.Doors_wedge()
     else:
         creep.Doors_wedge()
-        creep.drive_speed_distance(40, 50)
+        if not creep.drive_speed_distance(40, 50):
+            return False
 
     return True
 
@@ -321,8 +326,8 @@ def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     # Find a token in front of the robot
     closest_token = find_closest_token(creep, type)
     if closest_token:
-        go_to_closest_token(creep, type, closest_token, True)
-        return True
+        return go_to_closest_token(creep, type, closest_token, True)
+        
     
     # If no token is found, pan the camera to the left and right to try and find one
     angle_offset = 45
@@ -330,8 +335,8 @@ def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     closest_token = find_closest_token(creep, type, angle_offset)
 
     if closest_token:
-        go_to_closest_token(creep, type, closest_token, True)
-        return True
+        return go_to_closest_token(creep, type, closest_token, True)
+        
     
     # If still no token is found, pan the camera to the right and try again
     angle_offset = -45
@@ -339,8 +344,8 @@ def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     closest_token = find_closest_token(creep, type, angle_offset)
 
     if closest_token:
-        go_to_closest_token(creep, type, closest_token, True)
-        return True
+        return go_to_closest_token(creep, type, closest_token, True)
+        
 
     # If no token is found after panning, return the camera to the center and return False
     creep.camera_pan(0)
@@ -388,7 +393,7 @@ def get_normal_to_token(creep: CreepRobot, obj: Object, distance_away: float) ->
 
     final_turn = (h - angle_to_move) - y
 
-    return (distance_to_move, -angle_to_move, -final_turn)
+    return (distance_to_move, angle_to_move, final_turn)
 
 def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> tuple[float, float, float] | None:
     """
@@ -461,7 +466,7 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
     # Pan left, centre, right before moving
     for pan_angle in [0, 45, -45]:
         creep.camera_pan(pan_angle)
-        time.sleep(2)
+        time.sleep(1)
         markers = creep.find_objects(ObjectType.BASE)
         if markers:
             home_markers = [m for m in markers if m.id in creep.my_lab]
@@ -477,6 +482,7 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
         creep.turn_speed_angle(16, 90)
         for pan_angle in [0, 45, -45]:
             creep.camera_pan(pan_angle)
+            time.sleep(1)
             markers = creep.find_objects(ObjectType.BASE)
             if markers:
                 home_markers = [m for m in markers if m.id in creep.my_lab]

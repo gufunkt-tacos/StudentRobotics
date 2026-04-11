@@ -375,6 +375,8 @@ class CreepRobot():
         Drive times out after a calculated time is exceeded.
         """
 
+
+
         # nominal speed of robot at speed 32 = 25cm/s (at speed 32)
         # adjust for accel/decel times etc and add a 1 second margin
         if speed != 0:
@@ -400,12 +402,16 @@ class CreepRobot():
             or self.encoder_2() < required_distance_encoder_value)\
             and ((time.time() - time_started_drive) < drive_timeout_time) : # check drive timeout 15secs
                 #print("in drive_speed_distance, encoder1 ",encoder_1())
-                pass
+                if self.front_collision_detected:
+                    return False
+                continue
         elif speed < 0 :
             while ((self.encoder_1()) > (self.max_encoder - required_distance_encoder_value) \
             or (self.encoder_2()) > (self.max_encoder - required_distance_encoder_value))\
             and ((time.time() - time_started_drive) < drive_timeout_time) : # check drive timeout 15secs:
-                pass
+                if self.rear_collision_detected:
+                    return False
+                continue
         if (time.time() - time_started_drive) > drive_timeout_time :
             print ("Calculated drive time-out = ", drive_timeout_time)
             print ("Drive timed out in ",(time.time() - time_started_drive)," secs")
@@ -1121,6 +1127,19 @@ class CreepRobot():
         #print "distance to go ", distance_to_go
         
         return object_detected, range_detected, distance, distance_driven, distance_to_go 
+    
+    def check_front_collision(self, collision_distance = 10):
+        if self.left_front_sonar() <= collision_distance or self.right_front_sonar() <= collision_distance:
+            return True
+        else:
+            return False
+        
+    def check_rear_collision(self, collision_distance = 10):
+        if self.rear_sonar() <= collision_distance:
+            return True
+        else:
+            self.rear_collision_detected = True
+
 
     #_______________________________________________________________________________
 
@@ -1197,6 +1216,9 @@ class CreepRobot():
         self.robot.servo_board.servos[5].set_duty_limits(500,2500) # Set up servo parameters
         self.robot.servo_board.servos[3].set_duty_limits(500,2500) # Set up servo parameters
 
+        self.front_collision_detected = False
+        self.rear_collision_detected = False
+
         if (center_components):
             self.camera_pan(90)   # rotate camera to fit in 50 cm
             self.LH_door(-93)    # close LH door
@@ -1208,7 +1230,7 @@ class CreepRobot():
             self.VacPump(0)      # Vac pump stopped
             print("doors closed,camera turned,arm raised/retracted, Vac & Valve 'OFF'")
 
-        robot_mode = COMP
+        robot_mode = DEV
 
         # THIS SHOULD BE CHANGED DURING COMPETITION
         # my_corner = self.robot.zone #set corner in robot set-up
@@ -1224,7 +1246,7 @@ class CreepRobot():
             my_mode = "DEV"
             self.my_corner = 0  # Change the corner number for test purposes
             if self.my_corner == 0:
-                self.my_lab = [18,19,0]
+                self.my_lab = [18,19,141]
             else:
                 for i in range(0,3,1):
                     j=3+i+((self.my_corner-1)*5)
@@ -1236,16 +1258,19 @@ class CreepRobot():
             self.my_corner = self.robot.zone
             if self.my_corner==0:
                 self.my_lab = [18,19,0]
+            elif self.my_corner == 1:
+                self.my_lab = [5, 4, 3]
+            elif self.my_corner == 2:
+                self.my_lab = [10, 9, 8]
             else:
-                for i in range(0,3,1):
-                    j=3+i+((self.my_corner-1)*5)
-                    self.my_lab.append(j)
+                self.my_lab = [15, 14, 13]
             print ("my_lab ",self.my_lab)
         print ("I am in",my_mode,"mode")    
         print ("Selected starting corner = ",self.my_corner)
         print ("my_lab  ", self.my_lab)
 
-        self.preferred_nav_markers = self.precalculate_preferred_markers()
+
+        # self.preferred_nav_markers = self.precalculate_preferred_markers()
 
 
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
