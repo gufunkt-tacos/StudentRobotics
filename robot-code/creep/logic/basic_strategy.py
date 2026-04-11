@@ -1,10 +1,10 @@
 from creep.machine import *
-from creep.logic.basic_logic import *
-from creep.logic.robot_subroutines import *
+import creep.logic.basic_logic as bl
+import creep.logic.robot_subroutines as rs
 
 def strategy_base(creep: CreepRobot):
     #look for the closest box; get it
-    get_token(creep, ObjectType.BASE, "floor")
+    rs.get_token(creep, ObjectType.BASE, "floor")
 
     if not creep.can_continue():
         return
@@ -28,12 +28,12 @@ def strategy_base(creep: CreepRobot):
 
     creep.turn_speed_angle(-16, 90)
 
-    obj = find_closest_token(creep, ObjectType.ARENA_MARKER)
-    distance, turn_angle, final_angle = get_normal_to_token(creep, obj, 50)
+    obj = rs.find_closest_token(creep, ObjectType.ARENA_MARKER)
+    distance, turn_angle, final_angle = rs.get_normal_to_token(creep, obj, 50)
 
-    creep.turn_speed_angle(16 * sign(turn_angle), abs(turn_angle))
+    creep.turn_speed_angle(16 * rs.sign(turn_angle), abs(turn_angle))
     creep.drive_speed_distance(40, distance)
-    creep.turn_speed_angle(16 * sign(final_angle), abs(final_angle))
+    creep.turn_speed_angle(16 * rs.sign(final_angle), abs(final_angle))
     creep.turn_speed_angle(16, 165)
 
 
@@ -41,7 +41,7 @@ def strategy_base(creep: CreepRobot):
         return
 
     #get the one on the ledge
-    get_ledge_token(creep, ObjectType.BASE,90)
+    rs.get_ledge_token(creep, ObjectType.BASE,90)
 
     if not creep.can_continue():
         return
