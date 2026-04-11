@@ -112,10 +112,9 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
 
         closest_token.h_angle -= int(angle_offset)
 
-        for token in valid_tokens:
-            if closest_token.id == token.id:
-                closest_token.position = closest_token.position + token.position
-        return closest_token
+        same_id_tokens = [token for token in valid_tokens if token.id == closest_token.id]
+        virtual_token = Object(id=closest_token.id,position=mean([t.position for t in same_id_tokens]),h_angle=mean([t.h_angle for t in same_id_tokens]),v_angle=mean([t.v_angle for t in same_id_tokens]), yaw=mean([t.yaw for t in same_id_tokens]), pitch=mean([t.pitch for t in same_id_tokens]), roll=mean([t.roll for t in same_id_tokens]))
+        return virtual_token
     else:
         return None
 
