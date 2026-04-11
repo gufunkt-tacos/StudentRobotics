@@ -7,17 +7,13 @@ def main():
     creep = CreepRobot()
     try:
         creep.initialise()
-        go_home_norm(creep)
+        rs.go_home_norm(creep)
         # bs.strategy_base(creep)
     except Exception as e:
         print("An error occurred:", e)
         creep.error_jingle()
     finally:
-<<<<<<< Updated upstream
-        rs.go_home_norm(creep)
-=======
         # go_home_norm(creep)
->>>>>>> Stashed changes
         # home_coords = creep.get_home_coords()
         # go_to_coords(creep, int(home_coords[0]), int(home_coords[1]))
         # creep.drive_speed_distance(-40, 150)
