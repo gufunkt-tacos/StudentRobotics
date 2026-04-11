@@ -995,11 +995,17 @@ class CreepRobot():
     def error_jingle(self):
         error_tune = [
             (Note.C6, 0.3),
-            (Note.C7, 0.3),
+            (Note.E6, 0.3),
             (Note.C6, 0.3),
-            (Note.C7, 0.3),
+            (Note.E6, 0.3),
             (Note.C6, 0.3),
-            (Note.C7, 0.3),
+            (Note.E6, 0.3),
+            (Note.C6, 0.3),
+            (Note.E6, 0.3),
+            (Note.C6, 0.3),
+            (Note.E6, 0.3),
+            (Note.C6, 0.3),
+            (Note.E6, 0.3),
         ]
         self.play(error_tune, pause=0.1)
     
