@@ -89,6 +89,8 @@ class Object:
         self.roll: float = roll
         self.type: ObjectType = get_type_from_id(id)
 
+    
+
     def __repr__(self) -> str:
         return f"Object(id={self.id}, position={self.position}, h_angle={self.h_angle}, v_angle={self.v_angle}, type={self.type})"
     
@@ -1273,7 +1275,7 @@ class CreepRobot():
         else :
             my_mode = "COMP"
             print ("I am in",my_mode,"mode")
-            self.my_corner = 3
+            self.my_corner = 2
             print(str(self.robot.zone))
             if self.my_corner == 0:
                 self.my_lab = [18,19,0]

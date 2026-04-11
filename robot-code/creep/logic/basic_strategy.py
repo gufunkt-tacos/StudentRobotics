@@ -18,11 +18,22 @@ def strategy_base(creep: CreepRobot):
     creep.drive_speed_distance(-40, 55)
     creep.turn_speed_angle(16, 165)
     creep.Doors_open()
-    creep.drive_speed_distance(-40, 70)
-    creep.Doors_close()
+    creep.drive_speed_distance(-40, 60)
+    creep.Doors_wedge()
     creep.turn_speed_angle(16, 165)
-    creep.drive_speed_distance(40, 50)
 
+    if not creep.drive_speed_distance(40, 50):
+        creep.drive_speed_distance(-40, 10)
+        L = creep.left_front_sonar()
+        R = creep.right_front_sonar()
+        if L > R:
+            creep.turn_speed_angle(16, 30)
+        else:
+            creep.turn_speed_angle(-16, 30)
+        
+        creep.drive_speed_distance(40, 50)
+
+ 
 
     creep.drive_speed_distance(40, 82 + 13)
 

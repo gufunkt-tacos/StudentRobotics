@@ -2,12 +2,13 @@ from creep.machine import CreepRobot, ObjectType
 import creep.logic.robot_subroutines as rs
 import creep.logic.super_basic_strategy as sbs
 import creep.logic.basic_strategy as bs
+import creep.logic.twobluefloor as twobf
 
 def main():
     creep = CreepRobot()
     try:
         creep.initialise()
-        bs.strategy_base(creep)
+        twobf.strategy_base(creep)
         # bs.strategy_base(creep)
     except Exception as e:
         print("An error occurred:", e)

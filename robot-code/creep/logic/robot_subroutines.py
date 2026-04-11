@@ -550,7 +550,8 @@ def go_home_norm(creep: CreepRobot, norm_dist: float = 50.0) -> bool:
 
     creep.turn_speed_angle(16 * sign(angle), abs(angle))
     creep.drive_speed_distance(30, dist)
-    creep.turn_speed_angle(16 * sign(final_turn), abs(final_turn))
+    creep.drive_speed_distance(30, 50)
+    # creep.turn_speed_angle(16 * sign(final_turn), abs(final_turn))
 
     print("[go_home] reached home position")
     return True
