@@ -323,10 +323,13 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
 
 
 def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
+    search_time = time.time()
     # Find a token in front of the robot
     closest_token = find_closest_token(creep, type)
+    print(f"Initial token search took {time.time() - search_time:.2f} seconds")
     if closest_token:
         return go_to_closest_token(creep, type, closest_token, True)
+    print(f"Token collected at {time.time() - search_time:.2f} seconds")
         
     
     # If no token is found, pan the camera to the left and right to try and find one
