@@ -13,7 +13,7 @@ def main():
         creep.error_jingle()
     finally:
         # go_home_norm(creep)
-        return
+        creep.startup_jingle()
 
 if __name__ == "__main__":
     main()
