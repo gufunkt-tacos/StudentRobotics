@@ -112,6 +112,9 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
 
         closest_token.h_angle -= int(angle_offset)
 
+        for token in valid_tokens:
+            if closest_token.id == token.id:
+                closest_token.position = closest_token.position + token.position
         return closest_token
     else:
         return None
@@ -121,6 +124,11 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
 
     if not closest_token:
         return False
+
+    # if closest_token.position > 82+13:
+    #     creep.drive_speed_distance(40, 82)
+    #     return
+
 
     scaling = 1
     creep.camera_pan(0)
@@ -144,7 +152,7 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
     if open_doors:
         open_door_thread = Thread(target=creep.Doors_open)
         open_door_thread.start()
-        creep.drive_speed_distance(40, 70)
+        creep.drive_speed_distance(40, 50)
         creep.Doors_close()
         creep.Doors_wedge()
     else:
