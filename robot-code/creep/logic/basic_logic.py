@@ -107,3 +107,24 @@ def go_to_coords(creep: CreepRobot, x: int, y: int) -> bool:
     
     return False
     
+def get_safe_direction(creep: CreepRobot) -> int:
+    """
+    Pulses all sonars and returns 1 0 or -1 depending on which direction is unimpeded
+    """
+
+    left_front_sonar = creep.left_front_sonar()
+    front_front_sonar = creep.right_front_sonar()
+    front_min = min(left_front_sonar, front_front_sonar)
+    rear_sonar = creep.rear_sonar()
+
+    print(f"Sonar readings - Left: {left_front_sonar}, Front: {front_front_sonar}, Right: {rear_sonar}")
+
+    if front_min > rear_sonar and front_min > 60:  # Threshold distance to consider path clear
+        print("Path ahead is clear")
+        return 1  # Path ahead is clear
+    elif rear_sonar > front_min and rear_sonar > 60:  # Threshold distance to consider path clear
+        print("Path behind is clear")
+        return -1  # Path behind is clear
+    else:
+        print("No clear path detected")
+        return 0  # No clear path detected
