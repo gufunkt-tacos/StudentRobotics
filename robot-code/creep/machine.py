@@ -1208,7 +1208,7 @@ class CreepRobot():
             self.VacPump(0)      # Vac pump stopped
             print("doors closed,camera turned,arm raised/retracted, Vac & Valve 'OFF'")
 
-        robot_mode = DEV
+        robot_mode = COMP
 
         # THIS SHOULD BE CHANGED DURING COMPETITION
         # my_corner = self.robot.zone #set corner in robot set-up

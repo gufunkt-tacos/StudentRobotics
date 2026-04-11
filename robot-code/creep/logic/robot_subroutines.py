@@ -462,7 +462,7 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
     for pan_angle in [0, 45, -45]:
         creep.camera_pan(pan_angle)
         time.sleep(2)
-        markers = creep.find_objects(ObjectType.ARENA_MARKER)
+        markers = creep.find_objects(ObjectType.BASE)
         if markers:
             home_markers = [m for m in markers if m.id in creep.my_lab]
             if home_markers:
@@ -477,7 +477,7 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
         creep.turn_speed_angle(16, 90)
         for pan_angle in [0, 45, -45]:
             creep.camera_pan(pan_angle)
-            markers = creep.find_objects(ObjectType.ARENA_MARKER)
+            markers = creep.find_objects(ObjectType.BASE)
             if markers:
                 home_markers = [m for m in markers if m.id in creep.my_lab]
                 if home_markers:
