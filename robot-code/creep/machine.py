@@ -1230,7 +1230,7 @@ class CreepRobot():
             self.VacPump(0)      # Vac pump stopped
             print("doors closed,camera turned,arm raised/retracted, Vac & Valve 'OFF'")
 
-        robot_mode = DEV
+        robot_mode = COMP
 
         # THIS SHOULD BE CHANGED DURING COMPETITION
         # my_corner = self.robot.zone #set corner in robot set-up
@@ -1273,8 +1273,9 @@ class CreepRobot():
         else :
             my_mode = "COMP"
             print ("I am in",my_mode,"mode")
-            self.my_corner = self.robot.zone
-            if self.my_corner==0:
+            self.my_corner = 0
+            print(str(self.robot.zone))
+            if self.my_corner == 0:
                 self.my_lab = [18,19,0]
             elif self.my_corner == 1:
                 self.my_lab = [5, 4, 3]

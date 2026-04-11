@@ -468,6 +468,7 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
         creep.camera_pan(pan_angle)
         time.sleep(1)
         markers = creep.find_objects(ObjectType.ARENA_MARKER)
+        print(str(markers))
         if markers:
             home_markers = [m for m in markers if m.id in creep.my_lab]
             if home_markers:
@@ -484,6 +485,7 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
             creep.camera_pan(pan_angle)
             time.sleep(1)
             markers = creep.find_objects(ObjectType.ARENA_MARKER)
+            print(str(markers))
             if markers:
                 home_markers = [m for m in markers if m.id in creep.my_lab]
                 if home_markers:
