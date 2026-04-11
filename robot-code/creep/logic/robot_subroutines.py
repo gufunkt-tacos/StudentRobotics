@@ -393,7 +393,7 @@ def get_normal_to_token(creep: CreepRobot, obj: Object, distance_away: float) ->
 
     final_turn = (h - angle_to_move) - y
 
-    return (distance_to_move, angle_to_move, final_turn)
+    return (distance_to_move, -angle_to_move, -final_turn)
 
 def get_normal_to_ledge(creep: CreepRobot, obj: Object, distance_away: float, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> tuple[float, float, float] | None:
     """
@@ -464,7 +464,7 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
     Returns the closest home marker Object or None if not found.
     """
     # Pan left, centre, right before moving
-    for pan_angle in [0, 45, -45]:
+    for pan_angle in [0, 30, -30]:
         creep.camera_pan(pan_angle)
         time.sleep(1)
         markers = creep.find_objects(ObjectType.ARENA_MARKER)
@@ -473,15 +473,17 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
             home_markers = [m for m in markers if m.id in creep.my_lab]
             if home_markers:
                 creep.camera_pan(0)
-                creep.turn_speed_angle(16 * sign(pan_angle), pan_angle)
+                if pan_angle != 0:
+                    creep.turn_speed_angle(16 * sign(pan_angle), pan_angle)
+                    return find_home_marker(creep)
                 return min(home_markers, key=lambda m: m.position)
 
     creep.camera_pan(0)
 
     # Rotate in place in 45° steps, full 360°
-    for _ in range(3):
-        creep.turn_speed_angle(16, 90)
-        for pan_angle in [0, 45, -45]:
+    for _ in range(5):
+        creep.turn_speed_angle(16, 60)
+        for pan_angle in [0, 30, -30]:
             creep.camera_pan(pan_angle)
             time.sleep(1)
             markers = creep.find_objects(ObjectType.ARENA_MARKER)
@@ -490,7 +492,9 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
                 home_markers = [m for m in markers if m.id in creep.my_lab]
                 if home_markers:
                     creep.camera_pan(0)
-                    creep.turn_speed_angle(16 * sign(pan_angle), pan_angle)
+                    if pan_angle != 0:
+                        creep.turn_speed_angle(16 * sign(pan_angle), pan_angle)
+                        return find_home_marker(creep)
                     return min(home_markers, key=lambda m: m.position)
 
     creep.camera_pan(0)
