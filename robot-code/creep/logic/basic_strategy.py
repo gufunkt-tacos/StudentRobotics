@@ -24,7 +24,7 @@ def strategy_base(creep: CreepRobot):
     creep.turn_speed_angle(16 * sign(turn_angle), abs(turn_angle))
     creep.drive_speed_distance(40, distance)
     creep.turn_speed_angle(16 * sign(final_angle), abs(final_angle))
-    creep.turn_timeout(16, 180)
+    creep.turn_speed_angle(16, 180)
 
 
     if not creep.can_continue():
