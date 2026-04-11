@@ -17,6 +17,7 @@ def main():
         # home_coords = creep.get_home_coords()
         # go_to_coords(creep, int(home_coords[0]), int(home_coords[1]))
         # creep.drive_speed_distance(-40, 150)
+        # rs.go_home_norm(creep)
         creep.startup_jingle()
 
 if __name__ == "__main__":

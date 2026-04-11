@@ -1273,7 +1273,7 @@ class CreepRobot():
         else :
             my_mode = "COMP"
             print ("I am in",my_mode,"mode")
-            self.my_corner = 0
+            self.my_corner = 3
             print(str(self.robot.zone))
             if self.my_corner == 0:
                 self.my_lab = [18,19,0]
