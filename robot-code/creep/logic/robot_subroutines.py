@@ -1017,3 +1017,259 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object | None, cfg: LedgeConf
     print("Box successfully collected from ledge.")
     return LedgePickupResult.SUCCESS
 
+
+
+# =============================================================================
+#  NEW / IMPROVED FUNCTIONS
+# =============================================================================
+
+# ── Collision Avoidance ───────────────────────────────────────────────────────
+
+COLLISION_THRESHOLD_CM: float = 28.0   # stop if sonar reads closer than this
+COLLISION_SWERVE_DIST:  float = 35.0   # cm to drive sideways during swerve
+COLLISION_SWERVE_ANGLE: int   = 45     # degrees to turn away from obstacle
+
+
+def read_front_sonars(creep: CreepRobot) -> tuple[float, float]:
+    """Return (left_cm, right_cm) front sonar readings."""
+    return creep.left_front_sonar(), creep.right_front_sonar()
+
+
+def obstacle_ahead(creep: CreepRobot,
+                   threshold: float = COLLISION_THRESHOLD_CM) -> bool:
+    """True if either front sonar is closer than *threshold* cm."""
+    L, R = read_front_sonars(creep)
+    return L < threshold or R < threshold
+
+
+def avoid_collision(creep: CreepRobot,
+                    threshold: float = COLLISION_THRESHOLD_CM) -> None:
+    """
+    Simple sonar-based collision avoidance.
+
+    When the robot detects an obstacle closer than *threshold* cm:
+      1. Stop immediately.
+      2. Decide which side has more clearance (left vs right sonar).
+      3. Turn COLLISION_SWERVE_ANGLE° away from the obstacle.
+      4. Drive COLLISION_SWERVE_DIST cm along that arc.
+      5. Turn back to roughly restore the original heading.
+
+    Call this inside any custom drive loop, or after
+    drive_speed_distance_objchk reports object_detected == True.
+    """
+    L, R = read_front_sonars(creep)
+
+    if L >= threshold and R >= threshold:
+        return  # nothing to avoid
+
+    creep.motor_stop()
+    print(f"[collision] obstacle detected — L={L:.1f}cm  R={R:.1f}cm")
+
+    # Turn away from the closer side (positive = left turn)
+    if L < R:
+        # obstacle is more to the left → turn right (negative)
+        swerve_dir = -1
+        print("[collision] swerving right")
+    else:
+        # obstacle is more to the right → turn left (positive)
+        swerve_dir = 1
+        print("[collision] swerving left")
+
+    creep.turn_speed_angle(16 * swerve_dir, COLLISION_SWERVE_ANGLE)
+    creep.drive_speed_distance(20, COLLISION_SWERVE_DIST)
+    creep.turn_speed_angle(-16 * swerve_dir, COLLISION_SWERVE_ANGLE)  # turn back
+
+
+def safe_drive(creep: CreepRobot,
+               speed: int,
+               distance: float,
+               threshold: float = COLLISION_THRESHOLD_CM,
+               max_avoidance_attempts: int = 3) -> bool:
+    """
+    Drive forward *distance* cm at *speed*, stopping and swerving if an
+    obstacle is detected.  Retries up to *max_avoidance_attempts* times
+    before giving up.
+
+    Returns True if the robot completed (approximately) the full distance,
+    False if blocked after all avoidance attempts.
+    """
+    remaining = distance
+    for attempt in range(max_avoidance_attempts + 1):
+        if remaining <= 2:
+            return True
+        # Use the built-in objchk drive for real-time sonar monitoring
+        creep.drive_speed_distance_objchk(speed, remaining, threshold)
+
+        import sr.robot3 as _sr  # noqa – just to reference object_detected global
+        # The machine module exposes object_detected as a module-level global
+        from creep import machine as _m
+        if not getattr(_m, "object_detected", False):
+            return True  # completed normally
+
+        if attempt == max_avoidance_attempts:
+            print(f"[safe_drive] blocked after {max_avoidance_attempts} avoidance attempts")
+            return False
+
+        print(f"[safe_drive] obstacle — attempting avoidance (attempt {attempt + 1})")
+        avoid_collision(creep, threshold)
+        # Estimate how far we actually got (rough: not ideal, but safe)
+        remaining = max(0, remaining - COLLISION_SWERVE_DIST)
+
+    return False
+
+
+# ── Box Search ────────────────────────────────────────────────────────────────
+
+def search_for_boxes(
+    creep: CreepRobot,
+    box_type: ObjectType = ObjectType.BASE,
+    sweep_step_deg: int   = 30,
+    prefer_floor: bool    = True,
+) -> Object | None:
+    """
+    Sweep up to 360° looking for boxes of *box_type*.
+
+    At every sweep position the camera is panned to 0°, +45°, and -45°.
+    Detected objects are scored by:
+      - Whether they appear to be on the floor (preferred over ledge)
+      - Proximity (closer is better)
+
+    The robot stops sweeping as soon as it has found at least one candidate,
+    then returns the best one.  If nothing is found after a full 360° sweep
+    the function returns None.
+
+    After returning the robot's heading has changed by however much it
+    rotated; the caller is responsible for the subsequent navigation.
+    """
+    print(f"[search_for_boxes] starting 360° sweep (step={sweep_step_deg}°)")
+
+    best_floor:  Object | None = None   # closest floor-level token
+    best_any:    Object | None = None   # closest token of any height
+
+    steps = 360 // sweep_step_deg
+
+    for step_idx in range(steps):
+        for pan_angle in (0, 45, -45):
+            creep.camera_pan(pan_angle)
+            candidates = creep.find_objects(box_type)
+            if not candidates:
+                continue
+
+            for obj in candidates:
+                # h_angle from find_objects is in robot frame even when camera
+                # is panned, because the SR library corrects for pan internally.
+                # If your firmware does NOT correct for pan, uncomment:
+                # obj.h_angle += pan_angle  (and clamp to ±180)
+
+                on_floor = is_on_floor(creep, obj)
+
+                if on_floor:
+                    if best_floor is None or obj.position < best_floor.position:
+                        best_floor = obj
+                        print(f"  [search] floor token id={obj.id} dist={obj.position:.0f}cm "
+                              f"angle={obj.h_angle:.0f}°")
+                else:
+                    if best_any is None or obj.position < best_any.position:
+                        best_any = obj
+                        print(f"  [search] ledge token id={obj.id} dist={obj.position:.0f}cm "
+                              f"angle={obj.h_angle:.0f}°")
+
+        # Stop early if we have a floor token (preferred)
+        if best_floor is not None and prefer_floor:
+            break
+
+        # Rotate to next sweep position
+        if step_idx < steps - 1:
+            creep.turn_speed_angle(16, sweep_step_deg)
+
+    creep.camera_pan(0)
+
+    if best_floor is not None:
+        print(f"[search_for_boxes] returning floor token id={best_floor.id} "
+              f"dist={best_floor.position:.0f}cm angle={best_floor.h_angle:.0f}°")
+        return best_floor
+
+    if best_any is not None:
+        print(f"[search_for_boxes] no floor token; returning nearest token "
+              f"id={best_any.id} dist={best_any.position:.0f}cm")
+        return best_any
+
+    print("[search_for_boxes] no boxes found after full sweep")
+    return None
+
+
+# ── Improved go_home_norm ─────────────────────────────────────────────────────
+
+def go_home_norm(creep: CreepRobot,
+                 norm_dist: float   = 50.0,
+                 entry_dist: float  = 80.0,
+                 max_retries: int   = 5) -> bool:
+    """
+    Navigate into the home zone.
+
+    Strategy
+    --------
+    1. Find the nearest home marker (camera pan + 360° rotation search).
+    2. If not visible, navigate via a nearby arena marker (up to *max_retries*
+       times) until the home marker comes into view.
+    3. Drive to a point *norm_dist* cm in front of the home marker,
+       perpendicular to the wall (the "normal point").
+    4. Turn to face the wall squarely, then drive *entry_dist* cm forward to
+       cross into the home zone.
+
+    Returns True on success, False if the robot cannot find its home.
+    """
+    creep.Doors_wedge()
+
+    # ── Step 1: locate home marker ──────────────────────────────────────────
+    home_marker = find_home_marker(creep)
+
+    retries = 0
+    while home_marker is None:
+        retries += 1
+        if retries > max_retries:
+            print(f"[go_home] home marker not found after {max_retries} attempts — giving up")
+            return False
+
+        print(f"[go_home] home not visible, navigating to vantage point "
+              f"(attempt {retries}/{max_retries})")
+
+        if not navigate_via_arena_marker(creep, norm_dist):
+            print("[go_home] no arena markers visible at all — doing blind spin")
+            # last resort: spin 90° and try again
+            creep.turn_speed_angle(16, 90)
+
+        home_marker = find_home_marker(creep)
+
+    # ── Step 2: drive to normal point ───────────────────────────────────────
+    print(f"[go_home] home marker {home_marker.id} at {home_marker.position:.1f} cm — "
+          f"h_angle={home_marker.h_angle:.1f}°")
+
+    dist, angle, final_turn = get_normal_to_token(creep, home_marker, norm_dist)
+
+    # Guard against degenerate geometry (NaN / very large values)
+    if not (0 < dist < 800) or not (-180 <= angle <= 180):
+        print(f"[go_home] geometry looks wrong (dist={dist:.1f}, angle={angle:.1f}) "
+              "— falling back to direct approach")
+        creep.turn_speed_angle(16 * sign(home_marker.h_angle), abs(home_marker.h_angle))
+        creep.drive_speed_distance(25, max(0, home_marker.position - norm_dist))
+    else:
+        creep.turn_speed_angle(16 * sign(angle), abs(angle))
+        creep.drive_speed_distance(25, dist)
+        creep.turn_speed_angle(16 * sign(final_turn), abs(final_turn))
+
+    # ── Step 3: refine position with a fresh marker read ───────────────────
+    refreshed = find_home_marker(creep)
+    if refreshed is not None:
+        # Fine-tune: small turn to centre on the marker, then enter
+        if abs(refreshed.h_angle) > 5:
+            creep.turn_speed_angle(10 * sign(refreshed.h_angle),
+                                   abs(refreshed.h_angle))
+        print(f"[go_home] refined: marker now at {refreshed.position:.1f} cm")
+
+    # ── Step 4: drive into home zone ────────────────────────────────────────
+    print(f"[go_home] entering home zone (driving {entry_dist:.0f} cm forward)")
+    creep.drive_speed_distance(20, entry_dist)
+
+    print("[go_home] home reached ✓")
+    return True
