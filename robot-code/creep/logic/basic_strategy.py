@@ -14,6 +14,14 @@ def strategy_base(creep: CreepRobot):
     #     print("Pushed red box out the way")
     # else:
     #     print("No red box found, moving on")
+
+    creep.drive_speed_distance(-40, 100)
+    creep.turn_speed_angle(16, 180)
+    creep.drive_speed_distance(-40, 70)
+    creep.turn_speed_angle(16, 180)
+    creep.drive_speed_distance(40, 50)
+
+
     creep.drive_speed_distance(40, 82 + 13)
 
     creep.turn_speed_angle(-16, 90)
