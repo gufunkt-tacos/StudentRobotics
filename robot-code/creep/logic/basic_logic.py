@@ -4,11 +4,6 @@ from ..machine import CreepRobot, ObjectType, Object, ARENA_MARKER_COORS, get_ma
 from math import atan2, cos, degrees, radians, sin
 from threading import Thread
 
-def move_forward(creep: CreepRobot):
-    creep.drive_sync(16, 0)
-    time.sleep(1)
-    creep.motor_stop()
-
 def pick_up_box(creep: CreepRobot) -> bool:
     # Move arm to pick up position
     creep.Arm_tilt_up()
@@ -86,7 +81,7 @@ def get_current_estimated_position(creep: CreepRobot) -> tuple | None:
         return None  # No markers found, position cannot be estimated
 
 
-def go_to_coords(creep: CreepRobot, x: int, y: int):
+def go_to_coords(creep: CreepRobot, x: int, y: int) -> bool:
     """ Go and collect a box at a location and avoid obstacles on the way
 
     Args:
@@ -108,4 +103,7 @@ def go_to_coords(creep: CreepRobot, x: int, y: int):
         distance_to_coords = ((x - robot_x) ** 2 + (y - robot_y) ** 2) ** 0.5
         print(f"Distance to box: {distance_to_coords}")
         creep.drive_speed_distance(30, distance_to_coords)
+        return True
+    
+    return False
     
