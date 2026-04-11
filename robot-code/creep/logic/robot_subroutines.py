@@ -120,7 +120,7 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
 
     
 def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object, open_doors: bool) -> bool:
-
+    start_time = time.time()
     if not closest_token:
         return False
 
@@ -131,6 +131,7 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
 
     scaling = 1
     creep.camera_pan(0)
+    print(f"Time after camera pan: {time.time() - start_time:.2f} seconds")
 
     closest_token_dist = closest_token.position
     token_angle = closest_token.h_angle
@@ -138,12 +139,16 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
     print(closest_token_dist)
     if not creep.turn_speed_angle(10*sign(token_angle), abs(token_angle)/scaling):
         return False
+    
+    print(f"Time after turn: {time.time() - start_time:.2f} seconds")
 
     # Try to find the token again after turning, to get another reading
     new_closest_token = find_closest_token(creep, type, 0)
     if new_closest_token is not None:
         closest_token_dist = new_closest_token.position
-        token_angle = new_closest_token.h_angle   
+        token_angle = new_closest_token.h_angle 
+
+    print(f"Time after finding token again: {time.time() - start_time:.2f} seconds")
     
     if not creep.turn_speed_angle(5*sign(token_angle), (abs(token_angle)/scaling)/2):
         return False
@@ -329,7 +334,6 @@ def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
     print(f"Initial token search took {time.time() - search_time:.2f} seconds")
     if closest_token:
         return go_to_closest_token(creep, type, closest_token, True)
-    print(f"Token collected at {time.time() - search_time:.2f} seconds")
         
     
     # If no token is found, pan the camera to the left and right to try and find one
