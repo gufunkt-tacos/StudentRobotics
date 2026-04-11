@@ -47,7 +47,7 @@ def strategy_base(creep: CreepRobot):
         return
 
     #if we see the next blue box, get it. otherwise, go to where it would be
-    # get_token(creep, ObjectType.BASE, "floor")
+    rs.get_token(creep, ObjectType.BASE, "floor")
 
     creep.turn_speed_angle(16, 180)
 
