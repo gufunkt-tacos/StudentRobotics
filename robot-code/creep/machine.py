@@ -1279,5 +1279,5 @@ class CreepRobot():
         else:
             return False
         
-    def get_come_coords(self) -> tuple[float, float]:
+    def get_home_coords(self) -> tuple[float, float]:
         return get_marker_coords(get_marker_wall(self.my_lab[1]))
