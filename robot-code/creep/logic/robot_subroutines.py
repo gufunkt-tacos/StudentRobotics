@@ -119,7 +119,7 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
         return None
 
     
-def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object, open_doors: bool) -> bool:
+def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object, open_doors: int, stop_short: bool = False) -> bool:
     start_time = time.time()
     if not closest_token:
         return False
@@ -156,16 +156,20 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
     if not creep.drive_speed_distance(40, closest_token_dist - 30):
         return False
     
-    if open_doors:
+    if open_doors == 2:
         open_door_thread = Thread(target=creep.Doors_open)
         open_door_thread.start()
-        if not creep.drive_speed_distance(40, 50):
+        if not stop_short and not creep.drive_speed_distance(40, 50):
             return False
         creep.Doors_close()
         creep.Doors_wedge()
-    else:
+    elif open_doors == 1:
         creep.Doors_wedge()
-        if not creep.drive_speed_distance(40, 50):
+        if not stop_short and not creep.drive_speed_distance(40, 50):
+            return False
+    else:
+        creep.Doors_close()
+        if not stop_short and not creep.drive_speed_distance(40, 50):
             return False
 
     return True
