@@ -7,7 +7,6 @@ def main():
     creep = CreepRobot()
     try:
         creep.initialise()
-        raise Exception("Test exception to check error handling") # Remove this line after confirming error handling works
         strategy_base(creep)
     except Exception as e:
         print("An error occurred:", e)
