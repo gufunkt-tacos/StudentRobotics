@@ -56,6 +56,10 @@ ARENA_MARKER_COORS = {
 def get_marker_wall(id):
     return id // 5
 
+# lab[1]
+# get_marker_wall(lab[1])
+# get_marker_coords(get_marker_wall(lab[1]))
+
 
 
 get_marker_coords = lambda marker_id: ARENA_MARKER_COORS[marker_id // 5][marker_id]
@@ -1274,3 +1278,6 @@ class CreepRobot():
             return True
         else:
             return False
+        
+    def get_come_coords(self) -> tuple[float, float]:
+        return get_marker_coords(get_marker_wall(self.my_lab[1]))
