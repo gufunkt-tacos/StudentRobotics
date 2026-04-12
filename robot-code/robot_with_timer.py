@@ -9,6 +9,7 @@ import time
 
 def main():
     creep = CreepRobot()
+    home_timer = None
     try:
         creep.initialise()
         creep.home_triggered = False
