@@ -7,11 +7,11 @@ def strategy_base(creep: CreepRobot):
         if objects is None:
             continue
         for obj in objects:
-            print(f"Object {obj} has on_floor={obj.on_floor}")
+            print(f"Object {obj.id} has on_floor={obj.has_top_face}")
             if obj.on_floor:
                 creep.LED_C_red()
             else:
-                creep.LED_D_blue()
+                creep.LED_C_blue()
         
 
 

@@ -6,7 +6,8 @@ import creep.logic.bsearch as bsearch
 def strategy_base(creep: CreepRobot):
 
     creep.Doors_open()
-    creep.drive_speed_distance(127, 150) # THIS MIGHT NEED TO CHANGED
+
+    creep.drive_speed_distance(40, 150) # THIS MIGHT NEED TO CHANGED
 
     creep.Doors_wedge()
 

@@ -413,13 +413,13 @@ class CreepRobot():
             while (self.encoder_1() < required_distance_encoder_value \
             or self.encoder_2() < required_distance_encoder_value) : # check drive timeout 15secs
                 #print("in drive_speed_distance, encoder1 ",encoder_1())
-                if self.front_collision_detected or ((time.time() - time_started_drive) < drive_timeout_time) :
+                if not self.check_front_collision or ((time.time() - time_started_drive) < drive_timeout_time) :
                     return False
                 continue
         elif speed < 0 :
             while ((self.encoder_1()) > (self.max_encoder - required_distance_encoder_value) \
             or (self.encoder_2()) > (self.max_encoder - required_distance_encoder_value)) : # check drive timeout 15secs:
-                if self.rear_collision_detected or ((time.time() - time_started_drive) < drive_timeout_time) :
+                if not self.check_front_collision or ((time.time() - time_started_drive) < drive_timeout_time) :
                     return False
                 continue
         # demanded distance achieved, stop motors
@@ -979,127 +979,122 @@ class CreepRobot():
     # pass "all", "acid_tokens", "base_tokens", "arena_marker"#_______________________________________________________________________________
     # 
 
-    def find_objects(self, object_type: ObjectType) -> list[Object] | None:
-        """
-        Finds all objects of a given type visible to the camera.
+    # def find_objects(self, object_type: ObjectType) -> list[Object] | None:
+    #     """
+    #     Finds all objects of a given type visible to the camera.
 
-        Improvements over the original per-marker version
-        --------------------------------------------------
-        Each physical cube carries up to 5 AprilTag markers (4 side faces + 1
-        top face).  The camera may see several at once.  This version:
+    #     Improvements over the original per-marker version
+    #     --------------------------------------------------
+    #     Each physical cube carries up to 5 AprilTag markers (4 side faces + 1
+    #     top face).  The camera may see several at once.  This version:
 
-          1. Groups all raw marker readings by *physical cube* using the ID
-             block structure (every 5 consecutive IDs belong to one cube).
-             Arena markers (IDs 0-19) are kept as individual entities.
+    #       1. Groups all raw marker readings by *physical cube* using the ID
+    #          block structure (every 5 consecutive IDs belong to one cube).
+    #          Arena markers (IDs 0-19) are kept as individual entities.
 
-          2. Classifies each raw reading as a **top face** when
-             ``abs(pitch) >= Object.TOP_FACE_PITCH_THRESHOLD`` (default 65 deg).
-             A top face points toward the sky; its position measurement is
-             unreliable for navigation so it is excluded from the position average.
+    #       2. Classifies each raw reading as a **top face** when
+    #          ``abs(pitch) >= Object.TOP_FACE_PITCH_THRESHOLD`` (default 65 deg).
+    #          A top face points toward the sky; its position measurement is
+    #          unreliable for navigation so it is excluded from the position average.
 
-          3. Averages position, h_angle, v_angle, yaw, pitch, and roll across
-             the remaining *side* faces.  If *only* top faces are visible the
-             function falls back to averaging all faces so the cube is at least
-             detected (flagged via has_top_face=True, on_floor still set).
+    #       3. Averages position, h_angle, v_angle, yaw, pitch, and roll across
+    #          the remaining *side* faces.  If *only* top faces are visible the
+    #          function falls back to averaging all faces so the cube is at least
+    #          detected (flagged via has_top_face=True, on_floor still set).
 
-          4. Estimates the cube height above the arena floor from the averaged
-             vertical angle and sets Object.on_floor accordingly.
+    #       4. Estimates the cube height above the arena floor from the averaged
+    #          vertical angle and sets Object.on_floor accordingly.
 
-        Returns a list of one Object per physical cube (or per arena marker),
-        or None if nothing of the requested type is visible.
-        """
-        from collections import defaultdict
+    #     Returns a list of one Object per physical cube (or per arena marker),
+    #     or None if nothing of the requested type is visible.
+    #     """
+    #     from collections import defaultdict
 
-        CAMERA_HEIGHT   = 44.5   # cm — height of camera above arena floor
-        CAMERA_H_OFFSET = 5.0    # cm — horizontal offset correction
+    #     CAMERA_HEIGHT   = 44.5   # cm — height of camera above arena floor
+    #     CAMERA_H_OFFSET = 5.0    # cm — horizontal offset correction
 
-        self.robot.kch.leds[LED_A].colour = Colour.OFF
-        self.robot.kch.leds[LED_B].colour = Colour.OFF
-        self.robot.kch.leds[LED_C].colour = Colour.OFF
+    #     self.robot.kch.leds[LED_A].colour = Colour.OFF
+    #     self.robot.kch.leds[LED_B].colour = Colour.OFF
+    #     self.robot.kch.leds[LED_C].colour = Colour.OFF
 
-        markers = self.robot.camera.see()
-        time.sleep(self.rseewaittime)
+    #     markers = self.robot.camera.see()
+    #     time.sleep(self.rseewaittime)
 
-        # Step 1: convert raw SR markers to a flat list of dicts
-        raw: list[dict] = []
-        for marker in markers:
-            robot_dist_raw = marker.position.distance / 10  # mm to cm
-            sq = (robot_dist_raw ** 2) - (CAMERA_HEIGHT ** 2)
-            robot_dist_floor = 1000 if sq <= 0 else math.sqrt(sq) - CAMERA_H_OFFSET
+    #     # Step 1: convert raw SR markers to a flat list of dicts
+    #     raw: list[dict] = []
+    #     for marker in markers:
+    #         robot_dist_raw = marker.position.distance / 10  # mm to cm
+    #         sq = (robot_dist_raw ** 2) - (CAMERA_HEIGHT ** 2)
+    #         robot_dist_floor = 1000 if sq <= 0 else math.sqrt(sq) - CAMERA_H_OFFSET
 
-            raw.append({
-                "id"      : marker.id,
-                "position": robot_dist_floor,
-                "h_angle" : math.degrees(marker.position.horizontal_angle),
-                "v_angle" : math.degrees(marker.position.vertical_angle),
-                "yaw"     : math.degrees(marker.orientation.yaw),
-                "pitch"   : math.degrees(marker.orientation.pitch),
-                "roll"    : math.degrees(marker.orientation.roll),
-            })
+    #         raw.append({
+    #             "id"      : marker.id,
+    #             "position": robot_dist_floor,
+    #             "h_angle" : math.degrees(marker.position.horizontal_angle),
+    #             "v_angle" : math.degrees(marker.position.vertical_angle),
+    #             "yaw"     : math.degrees(marker.orientation.yaw),
+    #             "pitch"   : math.degrees(marker.orientation.pitch),
+    #             "roll"    : math.degrees(marker.orientation.roll),
+    #         })
 
-        if not raw:
-            return None
+    #     if not raw:
+    #         return None
 
-        # Step 2: group by physical cube
-        #   Arena markers (0-19):  cube_key = marker_id          (one marker per entity)
-        #   Token faces (100-179): cube_key = marker_id // 5     (5 faces per cube)
-        #     acid block 100-139 -> keys 20-27
-        #     base block 140-179 -> keys 28-35
-        #   No overlap with arena-marker keys (0-19).
-        groups: dict[int, list[dict]] = defaultdict(list)
-        for r in raw:
-            mid = r["id"]
-            key = mid if mid < 100 else mid // 5
-            groups[key].append(r)
+    #     # Step 2: group by physical cube
+    #     #   Arena markers (0-19):  cube_key = marker_id          (one marker per entity)
+    #     #   Token faces (100-179): cube_key = marker_id // 5     (5 faces per cube)
+    #     #     acid block 100-139 -> keys 20-27
+    #     #     base block 140-179 -> keys 28-35
+    #     #   No overlap with arena-marker keys (0-19).
+    #     groups: dict[int, list[dict]] = defaultdict(list)
+    #     for r in raw:
+    #         mid = r["id"]
+    #         key = mid if mid < 100 else mid // 5
+    #         groups[key].append(r)
 
-        # Step 3: build one Object per group
-        objects: list[Object] = []
+    #     # Step 3: build one Object per group
+    #     objects: list[Object] = []
 
-        for key, readings in groups.items():
-            # Separate top faces (sticker pointing up) from navigable side faces
-            side_faces = [r for r in readings
-                          if abs(r["pitch"]) < Object.TOP_FACE_PITCH_THRESHOLD]
-            top_faces  = [r for r in readings
-                          if abs(r["pitch"]) >= Object.TOP_FACE_PITCH_THRESHOLD]
+    #     for key, readings in groups.items():
+    #         # Separate top faces (sticker pointing up) from navigable side faces
+    #         side_faces = [r for r in readings
+    #                       if abs(r["pitch"]) < Object.TOP_FACE_PITCH_THRESHOLD]
+    #         top_faces  = [r for r in readings
+    #                       if abs(r["pitch"]) >= Object.TOP_FACE_PITCH_THRESHOLD]
 
-            has_top = bool(top_faces)
+    #         has_top = bool(top_faces)
+        
 
-            # Use side faces for averaging; fall back to all if none available
-            nav = side_faces if side_faces else readings
+    #         # Use side faces for averaging; fall back to all if none available
+    #         nav = side_faces if side_faces else readings
 
-            def _mean(field: str, nav=nav) -> float:
-                return statistics.mean(r[field] for r in nav)
+    #         def _mean(field: str, nav=nav) -> float:
+    #             return statistics.mean(r[field] for r in nav)
 
-            representative_id = nav[0]["id"]
-            avg_pos   = _mean("position")
-            avg_h     = _mean("h_angle")
-            avg_v     = _mean("v_angle")
-            avg_yaw   = _mean("yaw")
-            avg_pitch = _mean("pitch")
-            avg_roll  = _mean("roll")
+    #         representative_id = nav[0]["id"]
+    #         avg_pos   = _mean("position")
+    #         avg_h     = _mean("h_angle")
+    #         avg_v     = _mean("v_angle")
+    #         avg_yaw   = _mean("yaw")
+    #         avg_pitch = _mean("pitch")
+    #         avg_roll  = _mean("roll")
 
-            obj = Object(representative_id, avg_pos, avg_h, avg_v,
-                         avg_yaw, avg_pitch, avg_roll)
-            obj.has_top_face = has_top
+    #         obj = Object(representative_id, avg_pos, avg_h, avg_v,
+    #                      avg_yaw, avg_pitch, avg_roll)
+    #         obj.has_top_face = has_top
 
-            # Step 4: estimate height above arena floor and set on_floor
-            # Slant distance from camera lens to cube face
-            d_slant = math.sqrt(avg_pos ** 2 + CAMERA_HEIGHT ** 2)
-            # Positive v_angle = camera tilted up; negative = looking down
-            cube_height = math.sin(math.radians(avg_v)) * d_slant + CAMERA_HEIGHT
-            obj.on_floor = cube_height < Object.HEIGHT_THRESHOLD
+    #         # # Step 4: estimate height above arena floor and set on_floor
+    #         # # Slant distance from camera lens to cube face
+    #         # d_slant = math.sqrt(avg_pos ** 2 + CAMERA_HEIGHT ** 2)
+    #         # # Positive v_angle = camera tilted up; negative = looking down
+    #         # cube_height = math.sin(math.radians(avg_v)) * d_slant + CAMERA_HEIGHT
 
-            face_info = f"{len(side_faces)}side" + (f"+{len(top_faces)}top" if has_top else "")
-            print(f"[find_objects] key={key} id={representative_id} "
-                  f"pos={avg_pos:.1f}cm h={avg_h:.1f}deg "
-                  f"h_est={cube_height:.1f}cm on_floor={obj.on_floor} ({face_info})")
+    #         objects.append(obj)
 
-            objects.append(obj)
+    #     if not objects:
+    #         return None
 
-        if not objects:
-            return None
-
-        return [o for o in objects if object_type in o.type]
+    #     return [o for o in objects if object_type in o.type]
 
 
     #_______________________________________________________________________________
@@ -1274,7 +1269,7 @@ class CreepRobot():
         if self.rear_sonar() <= collision_distance:
             return True
         else:
-            self.rear_collision_detected = True
+            return False
 
 
     #_______________________________________________________________________________

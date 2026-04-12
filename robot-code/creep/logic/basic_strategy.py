@@ -4,7 +4,7 @@ import creep.logic.robot_subroutines as rs
 
 def strategy_base(creep: CreepRobot):
     #look for the closest box; get it
-    rs.get_token(creep, ObjectType.BASE, "floor")
+    print(str(rs.get_token(creep, ObjectType.BASE, "floor")))
 
     if not creep.can_continue():
         return
@@ -35,7 +35,7 @@ def strategy_base(creep: CreepRobot):
 
  
 
-    creep.drive_speed_distance(40, 82 + 13)
+    creep.drive_speed_distance(40, 190)
 
     creep.turn_speed_angle(-16, 90)
 
