@@ -174,7 +174,7 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
 
     return True
 
-def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) -> None:
+def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG, target_token_id: int | None = None) -> bool:
     """
     Final adjustments before collecting box from ledge (uses sonar)
     """
@@ -193,10 +193,18 @@ def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) 
         dist_error = min(L, R) - TARGET_DIST
 
         # angle
-        markers = creep.find_objects(ObjectType.ANY)
         current = None
+        markers = creep.find_objects(ObjectType.TOKEN)
         if markers is not None and len(markers) > 0:
-            current = min(markers, key=lambda m: m.position)
+            if target_token_id == None:
+                current = min(markers, key=lambda m: m.position)
+            else:
+                for target in markers:
+                    if target.id == target_token_id:
+                        current = target
+                        break
+            
+
 
         if current is None:
             angle_error = 0
@@ -224,6 +232,8 @@ def get_in_position(creep: CreepRobot, cfg: LedgeConfig = DEFAULT_LEDGE_CONFIG) 
         speed2 = max(min(speed2, 10), -10)
 
         creep.drive_both(int(speed1), int(speed2))
+
+    return True
     
 
 def collect_ledge_token(creep: CreepRobot):

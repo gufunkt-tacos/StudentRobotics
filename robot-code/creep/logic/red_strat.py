@@ -25,14 +25,14 @@ def strategy_acid(creep: CreepRobot) -> bool:
         creep.drive_speed_distance(-40, 20)
         # Turn around and go to the blue cube back at base to orient towards the red cube on the shelf
         creep.turn_speed_angle(16, 165)
-        rs.go_to_closest_token(creep, ObjectType.BASE, closest_base, 0)
+        rs.go_to_closest_token(creep, ObjectType.BASE, closest_base, 0, stop_short=True)
         creep.turn_speed_angle(16, 85)
         
         # Now facing the ledge look for the closest red cube and get it from the ledge
         acid_tokens = creep.find_objects(ObjectType.ACID)
         if acid_tokens and len(acid_tokens) > 0:
             closest_acid = min(acid_tokens, key=lambda a: a.position)
-            # TODO: angle towards it and approach the ledge
+            rs.get_in_position(creep, target_token_id=closest_acid.id)
             bl.pick_up_box(creep)
 
         return True # Go home
