@@ -29,7 +29,10 @@ def strategy_base(creep: CreepRobot):
         if time_elapsed >= creep.go_home_time:
             raise Exception("Time to go NOW!") 
         
-        strategy_base(creep)
+        if rs.search_for_boxes(creep, ObjectType.BASE) is None:
+            return strategy_base(creep)
+        
+        raise Exception("No base found, going home!")
 
 
 

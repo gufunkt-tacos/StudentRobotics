@@ -4,7 +4,7 @@ import creep.logic.robot_subroutines as rs
 
 def strategy_base(creep: CreepRobot):
     #look for the closest box; get it
-    print(str(rs.get_token(creep, ObjectType.BASE, "floor")))
+    rs.get_token(creep, ObjectType.BASE, "floor")
 
     if not creep.can_continue():
         return

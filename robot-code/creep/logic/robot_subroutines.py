@@ -758,9 +758,11 @@ def search_for_boxes(
         print(f"[search_for_boxes] no floor token; returning nearest token "
               f"id={best_any.id} dist={best_any.position:.0f}cm")
         return best_any
-    
-    
+
     return None
+    
+
+    
 
 def read_front_sonars(creep: CreepRobot) -> tuple[float, float]:
     """Return (left_cm, right_cm) front sonar readings."""
