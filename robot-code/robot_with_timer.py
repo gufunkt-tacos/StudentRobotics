@@ -2,13 +2,19 @@ from creep.machine import CreepRobot, ObjectType
 import creep.logic.robot_subroutines as rs
 import creep.logic.super_basic_strategy as sbs
 import creep.logic.basic_strategy as bs
+import creep.logic.circler as circ
 import creep.logic.twobluefloor as twobf
 import creep.logic.faststart as fs
 import threading
 import time
 
+
+
 def main():
     creep = CreepRobot()
+
+    creep.strat = circ
+
     home_timer = None
     try:
         creep.initialise()
@@ -31,7 +37,7 @@ def main():
         home_timer.start()
         print(f"[main] Home timer armed: {remaining:.1f}s")
 
-        fs.strategy_base(creep)
+        creep.strat.strategy_base(creep)
         # bs.strategy_base(creep)
     except Exception as e:
         print("An error occurred:", e)

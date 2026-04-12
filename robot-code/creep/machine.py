@@ -1308,6 +1308,7 @@ class CreepRobot():
         self.floor_tokens_collected: int = 0
         self.ledge_tokens_collected: int = 0
         self.home_triggered: bool = False
+        self.strat: object = None
 
     def can_continue(self):
         if (time.time() - self.time_started_game) < self.go_home_time:
