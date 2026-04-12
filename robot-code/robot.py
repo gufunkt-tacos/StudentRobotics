@@ -19,6 +19,7 @@ def main():
         print("An error occurred:", e)
         creep.error_jingle()
     finally:
+        creep.home_jingle()
         rs.go_home_norm(creep)
         # home_coords = creep.get_home_coords()
         # go_to_coords(creep, int(home_coords[0]), int(home_coords[1]))
