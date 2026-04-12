@@ -12,11 +12,11 @@ def strategy_base(creep: CreepRobot):
     creep.Doors_wedge()
 
     closest_acid = rs.find_closest_token(creep, ObjectType.ACID, 0)
-    if closest_acid is not None:
+    if closest_acid is not None and closest_acid.position < 100:
         rs.go_to_closest_token(creep, ObjectType.ACID, closest_acid, False)
     else:
-        creep.turn_speed_angle(16, 165)
         creep.drive_speed_distance(-40, 60)
+        creep.turn_speed_angle(16, 165)
         creep.Doors_open()
         creep.drive_speed_distance(-40, 60)
         creep.Doors_close()

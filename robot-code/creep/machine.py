@@ -1455,7 +1455,7 @@ class CreepRobot():
         print("")
         print("")
 
-        self.go_home_time = 30 # time to start going home in seconds (1.5 mins = 90 secs)
+        self.go_home_time = 90 # time to start going home in seconds (1.5 mins = 90 secs)
 
         self.floor_tokens_collected: int = 0
         self.ledge_tokens_collected: int = 0
