@@ -366,7 +366,7 @@ class CreepRobot():
 
 
 
-    def drive_speed_distance(self, speed: int, distance: float) -> bool:
+    def drive_speed_distance(self, speed: int, distance: float, should_return: bool = False) -> bool:
         """
         Drive in a straight line at a defined speed (-128 to +127)
 
@@ -387,6 +387,7 @@ class CreepRobot():
         else:
             drive_timeout_time = 15.0 #default drive timeout time
         if distance <= 0: # Only +ve values of distance allowed
+            print("NEGATIVE DISTANCE")
             return False
         
         print("in drive_speed_distance. Will reset both encoders.")
@@ -405,12 +406,16 @@ class CreepRobot():
             or self.encoder_2() < required_distance_encoder_value) : # check drive timeout 15secs
                 #print("in drive_speed_distance, encoder1 ",encoder_1())
                 if self.front_collision_detected or ((time.time() - time_started_drive) < drive_timeout_time) :
+                    if should_return == True:
+                        return False
                     rs.recovery(self)
                 continue
         elif speed < 0 :
             while ((self.encoder_1()) > (self.max_encoder - required_distance_encoder_value) \
             or (self.encoder_2()) > (self.max_encoder - required_distance_encoder_value)) : # check drive timeout 15secs:
                 if self.rear_collision_detected or ((time.time() - time_started_drive) < drive_timeout_time) :
+                    if should_return == True:
+                        return False
                     rs.recovery(self)
                 continue
         # demanded distance achieved, stop motors

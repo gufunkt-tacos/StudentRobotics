@@ -182,7 +182,6 @@ def _deposit_and_realign(creep: CreepRobot) -> None:
     creep.Doors_wedge()
 
     creep.floor_tokens_collected = 0
-    creep.ledge_tokens_collected = 0
     print("[circler] deposit complete — resuming circuit")
 
     # Turn back into the arena (180°) and realign to the nearest wall
@@ -210,7 +209,6 @@ def strategy_base(creep: CreepRobot) -> None:
 
     print("[circler] ── strategy start ──")
 
-    # ── Phase 0: grab the first visible floor cube ────────────────────────
     print("[circler] Phase 0: startup grab")
     creep.Doors_wedge()
     floor_cubes = _find_floor_base_cubes(creep)
@@ -238,6 +236,13 @@ def strategy_base(creep: CreepRobot) -> None:
             creep.camera_pan(0)
             print("[circler] no floor cube at startup — going straight to circuit")
 
+    floor_cubes = _find_floor_base_cubes(creep)
+
+    while floor_cubes is not None:
+        _collect_cube(creep, floor_cubes[0])
+        floor_cubes = _find_floor_base_cubes(creep)
+        
+
     # ── Phase 1: align to wall before starting circuit ────────────────────
     print("[circler] Phase 1: initial wall alignment")
     if not _align_to_wall(creep):
@@ -247,22 +252,21 @@ def strategy_base(creep: CreepRobot) -> None:
             if _align_to_wall(creep):
                 break
         else:
-            print("[circler] could not find any wall marker — aborting strategy")
-            return
+            rs.recovery(creep)
 
     # ── Phase 2: main circuit loop ────────────────────────────────────────
     print("[circler] Phase 2: entering circuit loop")
 
-    while not _should_go_home():
+    while not _should_go_home(creep):
 
 
         print(f"[circler] driving {SCAN_STEP:.0f}cm along wall")
         creep.drive_speed_distance(30, SCAN_STEP)
 
-        # ── Scan for floor cubes after the step ──────────────────────────
+
         floor_cubes = _find_floor_base_cubes(creep)
 
-        if floor_cubes:
+        while floor_cubes is not None:
             # Take the nearest floor cube
             target = floor_cubes[0]
             print(f"[circler] {len(floor_cubes)} floor cube(s) visible; "
@@ -277,14 +281,27 @@ def strategy_base(creep: CreepRobot) -> None:
                 print("[circler] collection failed — continuing circuit")
 
             # Re-align to wall after detour
-            _align_to_wall(creep)
+            floor_cubes = _find_floor_base_cubes(creep)
+        _align_to_wall(creep)
 
-        else:
-            # No cubes — check whether we've drifted far from the wall and
-            # realign every REALIGN_STEPS steps to stay parallel.
-            # Count steps since last alignment is tracked implicitly: we realign
-            # whenever alignment drift is noticed via the marker position.
-            pass   # keep driving; the loop will naturally collect and realign
+        # candidates = []
+        # best_marker: Object | None = None
+        # creep.camera_pan(0)
+        # markers = creep.find_objects(ObjectType.ARENA_MARKER)
+        # if markers:
+
+        #     for marker in markers:
+        #         for corner_id in corner_ids:
+        #             if marker.id == corner_id:
+        #                 candidates.append(marker)
+            
+        #     candidate = min(candidates, key=lambda m: m.position)
+
+        #     if candidate is None:
+        #         candidate = min(markers, key=lambda m: m.position)
+
+        #     if best_marker is None or candidate.position < best_marker.position:
+        #         best_marker = candidate
 
         # ── Periodic realignment ──────────────────────────────────────────
         # Look for a wall marker to check drift.  If one is unusually close or
@@ -306,6 +323,8 @@ def strategy_base(creep: CreepRobot) -> None:
 
     # ── Phase 3: go home ──────────────────────────────────────────────────
     print("[circler] Phase 3: heading home")
+    if _time_remaining(creep) <= HOME_BUFFER:
+        raise Exception("GO HOME NOW NOW NOW NOW!") 
     _deposit_and_realign(creep)
-    # After deposit the robot is back inside the arena facing inward; hand off
-    # to the finally block in robot.py which calls go_home_norm() once more.
+    strategy_base(creep)
+
