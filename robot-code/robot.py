@@ -9,7 +9,7 @@ import creep.logic.faststart as fs
 def main():
     creep = CreepRobot()
 
-    creep.strat = twobf
+    creep.strat = twobf.TwoBlueFloor()
 
     try:
         creep.initialise()
