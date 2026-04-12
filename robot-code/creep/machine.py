@@ -33,7 +33,6 @@ import numpy as np
 from math import cos, sin, pi, sqrt, atan2
 import serial.tools.list_ports
 import statistics
-import creep.logic.robot_subroutines as rs
 
 # These coordinates are correct for the 2025-2026 game. List starts at marker '0' to marker 19
 MARKER_COORDS = \
