@@ -56,10 +56,6 @@ ARENA_MARKER_COORS = {
 def get_marker_wall(id):
     return id // 5
 
-# lab[1]
-# get_marker_wall(lab[1])
-# get_marker_coords(get_marker_wall(lab[1]))
-
 
 
 get_marker_coords = lambda marker_id: ARENA_MARKER_COORS[marker_id // 5][marker_id]
@@ -88,8 +84,6 @@ class Object:
         self.pitch: float = pitch 
         self.roll: float = roll
         self.type: ObjectType = get_type_from_id(id)
-
-    
 
     def __repr__(self) -> str:
         return f"Object(id={self.id}, position={self.position}, h_angle={self.h_angle}, v_angle={self.v_angle}, type={self.type})"
@@ -365,7 +359,7 @@ class CreepRobot():
 
 
 
-    def drive_speed_distance(self, speed: int, distance: float, should_return: bool = False) -> bool:
+    def drive_speed_distance(self, speed: int, distance: float) -> bool:
         """
         Drive in a straight line at a defined speed (-128 to +127)
 
@@ -377,8 +371,6 @@ class CreepRobot():
         Drive times out after a calculated time is exceeded.
         """
 
-
-
         # nominal speed of robot at speed 32 = 25cm/s (at speed 32)
         # adjust for accel/decel times etc and add a 1 second margin
         if speed != 0:
@@ -386,7 +378,6 @@ class CreepRobot():
         else:
             drive_timeout_time = 15.0 #default drive timeout time
         if distance <= 0: # Only +ve values of distance allowed
-            print("NEGATIVE DISTANCE")
             return False
         
         print("in drive_speed_distance. Will reset both encoders.")
@@ -402,21 +393,19 @@ class CreepRobot():
         #If speed > 0 (OK but if < 0 then need to correct encoder for -ve values)
         if speed > 0 :
             while (self.encoder_1() < required_distance_encoder_value \
-            or self.encoder_2() < required_distance_encoder_value) : # check drive timeout 15secs
+            or self.encoder_2() < required_distance_encoder_value)\
+            and ((time.time() - time_started_drive) < drive_timeout_time) : # check drive timeout 15secs
                 #print("in drive_speed_distance, encoder1 ",encoder_1())
-                if self.front_collision_detected or ((time.time() - time_started_drive) < drive_timeout_time) :
-                    if should_return == True:
-                        return False
-                    rs.recovery(self)
-                continue
+                pass
         elif speed < 0 :
             while ((self.encoder_1()) > (self.max_encoder - required_distance_encoder_value) \
-            or (self.encoder_2()) > (self.max_encoder - required_distance_encoder_value)) : # check drive timeout 15secs:
-                if self.rear_collision_detected or ((time.time() - time_started_drive) < drive_timeout_time) :
-                    if should_return == True:
-                        return False
-                    rs.recovery(self)
-                continue
+            or (self.encoder_2()) > (self.max_encoder - required_distance_encoder_value))\
+            and ((time.time() - time_started_drive) < drive_timeout_time) : # check drive timeout 15secs:
+                pass
+        if (time.time() - time_started_drive) > drive_timeout_time :
+            print ("Calculated drive time-out = ", drive_timeout_time)
+            print ("Drive timed out in ",(time.time() - time_started_drive)," secs")
+            return False
         # demanded distance achieved, stop motors
         self.motor_stop()
         #print ("Calculated drive time-out = ", drive_timeout_time)
@@ -481,18 +470,15 @@ class CreepRobot():
         time.sleep(.1) # this is not needed and adds significant issues
         # select encoder which has increasing value
         if speed < 0 :
-            while self.encoder_2() < angle_encoder * angle: # check drive timeout 10secs:
-                if self.front_collision_detected or self.rear_collision_detected or ((time.time() - time_started_turn) < turn_timeout_time) :
-                    rs.recovery(self)
-                continue
+            while self.encoder_2() < angle_encoder * angle \
+            and ((time.time() - time_started_turn) < turn_timeout_time) : # check drive timeout 10secs:
+                pass
             self.motor_stop()
             time.sleep(.1)
         elif speed > 0 :
             while self.encoder_1() < angle_encoder * angle\
             and ((time.time() - time_started_turn) < turn_timeout_time) : # check drive timeout 10secs:
-                if self.front_collision_detected or self.rear_collision_detected or ((time.time() - time_started_turn) < turn_timeout_time) :
-                    rs.recovery(self)
-                continue
+                pass
             self.motor_stop()
             time.sleep(.1)
 
@@ -1245,6 +1231,33 @@ class CreepRobot():
         #  FOR TEST PURPOSES ONLY +++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # This code is for safety but may be removed
 
+        self.my_lab = []
+        if robot_mode == DEV:
+            my_mode = "DEV"
+            self.my_corner = 0  # Change the corner number for test purposes
+            if self.my_corner == 0:
+                self.my_lab = [18,19,0]
+            else:
+                for i in range(0,3,1):
+                    j=3+i+((self.my_corner-1)*5)
+                    self.my_lab.append(j)
+            
+        else :
+            my_mode = "COMP"
+            print ("I am in",my_mode,"mode")
+            self.my_corner = self.robot.zone
+            if self.my_corner==0:
+                self.my_lab = [18,19,0]
+            else:
+                for i in range(0,3,1):
+                    j=3+i+((self.my_corner-1)*5)
+                    self.my_lab.append(j)
+            print ("my_lab ",self.my_lab)
+        print ("I am in",my_mode,"mode")    
+        print ("Selected starting corner = ",self.my_corner)
+        print ("my_lab  ", self.my_lab)
+
+        self.preferred_nav_markers = self.precalculate_preferred_markers()
 
 
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -1262,38 +1275,6 @@ class CreepRobot():
         
         self.startup_jingle()
         self.robot.wait_start()
-
-        self.my_lab = []
-        if robot_mode == DEV:
-            my_mode = "DEV"
-            self.my_corner = 0  # Change the corner number for test purposes
-            if self.my_corner == 0:
-                self.my_lab = [18,19,141]
-            else:
-                for i in range(0,3,1):
-                    j=3+i+((self.my_corner-1)*5)
-                    self.my_lab.append(j)
-            
-        else :
-            my_mode = "COMP"
-            print ("I am in",my_mode,"mode")
-            self.my_corner = 2
-            print(str(self.robot.zone))
-            if self.my_corner == 0:
-                self.my_lab = [18,19,0]
-            elif self.my_corner == 1:
-                self.my_lab = [5, 4, 3]
-            elif self.my_corner == 2:
-                self.my_lab = [10, 9, 8]
-            else:
-                self.my_lab = [15, 14, 13]
-            print ("my_lab ",self.my_lab)
-        print ("I am in",my_mode,"mode")    
-        print ("Selected starting corner = ",self.my_corner)
-        print ("my_lab  ", self.my_lab)
-
-
-        self.preferred_nav_markers = self.precalculate_preferred_markers()
 
         self.camera_pan(0)
 
