@@ -15,10 +15,10 @@ def strategy_base(creep: CreepRobot):
     # else:
     #     print("No red box found, moving on")
     if not creep.drive_speed_distance(40, 82 + 13):
-        recovery()
+        recovery(creep)
 
     if not creep.turn_speed_angle(-16, 90):
-        recovery()
+        recovery(creep)
 
     obj = find_closest_token(creep, ObjectType.ARENA_MARKER)
     distance, turn_angle, final_angle = get_normal_to_token(creep, obj, 50)
