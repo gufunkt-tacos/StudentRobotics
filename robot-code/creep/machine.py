@@ -413,13 +413,13 @@ class CreepRobot():
             while (self.encoder_1() < required_distance_encoder_value \
             or self.encoder_2() < required_distance_encoder_value) : # check drive timeout 15secs
                 #print("in drive_speed_distance, encoder1 ",encoder_1())
-                if not self.check_front_collision or ((time.time() - time_started_drive) < drive_timeout_time) :
+                if self.front_collision_detected or not ((time.time() - time_started_drive) < drive_timeout_time) :
                     return False
                 continue
         elif speed < 0 :
             while ((self.encoder_1()) > (self.max_encoder - required_distance_encoder_value) \
             or (self.encoder_2()) > (self.max_encoder - required_distance_encoder_value)) : # check drive timeout 15secs:
-                if not self.check_front_collision or ((time.time() - time_started_drive) < drive_timeout_time) :
+                if self.front_collision_detected or not ((time.time() - time_started_drive) < drive_timeout_time) :
                     return False
                 continue
         # demanded distance achieved, stop motors
@@ -487,7 +487,7 @@ class CreepRobot():
         # select encoder which has increasing value
         if speed < 0 :
             while self.encoder_2() < angle_encoder * angle: # check drive timeout 10secs:
-                if self.front_collision_detected or self.rear_collision_detected or ((time.time() - time_started_turn) < turn_timeout_time) :
+                if self.front_collision_detected or self.rear_collision_detected or not ((time.time() - time_started_turn) < turn_timeout_time) :
                     return False
                 continue
             self.motor_stop()
@@ -495,7 +495,7 @@ class CreepRobot():
         elif speed > 0 :
             while self.encoder_1() < angle_encoder * angle\
             and ((time.time() - time_started_turn) < turn_timeout_time) : # check drive timeout 10secs:
-                if self.front_collision_detected or self.rear_collision_detected or ((time.time() - time_started_turn) < turn_timeout_time) :
+                if self.front_collision_detected or self.rear_collision_detected or not ((time.time() - time_started_turn) < turn_timeout_time) :
                     return False
                 continue
             self.motor_stop()
