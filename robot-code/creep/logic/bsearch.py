@@ -12,7 +12,8 @@ def strategy_base(creep: CreepRobot):
         rs.go_to_closest_token(creep, ObjectType.BASE, base, False, True)
         base = rs.find_closest_token(creep, ObjectType.BASE, 0)
         if base is None:
-            rs.recovery(creep)
+            return rs.recovery(creep)
+            
         if rs.is_on_floor(creep, base):
             creep.Doors_open()
             creep.drive_speed_distance(40, 50)

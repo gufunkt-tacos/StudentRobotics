@@ -5,6 +5,7 @@ import creep.logic.basic_strategy as bs
 import creep.logic.circler as circ
 import creep.logic.twobluefloor as twobf
 import creep.logic.faststart as fs
+import creep.logic.test as  test
 import threading
 import time
 
@@ -13,7 +14,7 @@ import time
 def main():
     creep = CreepRobot()
 
-    creep.strat = circ
+    creep.strat = test
 
     home_timer = None
     try:
@@ -24,7 +25,7 @@ def main():
             if creep.home_triggered:
                 return
             creep.home_triggered = True
-            print("[timer] *** HOME TIMER FIRED — heading home now ***")
+            print("[timer] HOME TIMER FIRED, heading home now")
             try:
                 creep.motor_stop()          # abort whatever motion is running
                 rs.go_home_norm(creep)
@@ -38,7 +39,6 @@ def main():
         print(f"[main] Home timer armed: {remaining:.1f}s")
 
         creep.strat.strategy_base(creep)
-        # bs.strategy_base(creep)
     except Exception as e:
         print("An error occurred:", e)
         creep.error_jingle()
