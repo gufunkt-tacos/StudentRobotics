@@ -1023,6 +1023,19 @@ class CreepRobot():
         ]
         self.play(error_tune, pause=0.1)
     
+    def finish_jingle(self):
+        tune = [
+            (Note.C6, 0.3),
+            (Note.D6, 0.3),
+            (Note.E6, 0.3),
+            (Note.F6, 0.3),
+            (Note.G6, 0.3),
+            (Note.A6, 0.3),
+            (Note.B6, 0.3),
+            (Note.C6, 0.3),
+        ]
+        self.play(tune, pause=0.1)
+    
 
     #       drive_speed_distance_objchk(speed, distance, object_detect_range)
     # Drive in a straight line at a defined speed (-128 to +127)
