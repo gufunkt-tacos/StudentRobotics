@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from statistics import mean
 from .basic_logic import pick_up_box
+import creep.logic.basic_strategy as bs
+
 
 
 @dataclass
@@ -328,7 +330,8 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     #     square_to_ledge(creep, None)
 
     get_in_position(creep)
-    pick_up_box(creep)
+    if pick_up_box(creep):
+        creep.ledge_tokens_collected += 1
 
 
     # add clearance for doors
@@ -338,7 +341,147 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     creep.drive_speed_distance_objchk(-16,50,20)
     creep.turn_speed_angle(-16*sign(angle_to_ledge),abs(angle_to_ledge))
 
+def recovery(creep: CreepRobot) -> None:
+    """
+    Sonar-based recovery sequence.
 
+    Phase 1 — Unstick
+    ------------------
+    Reads the two front sonars and the rear sonar to decide how the robot
+    is trapped, then manoeuvres to free itself:
+
+      Front + rear blocked  → spin in 90° steps until a clear gap appears,
+                              then drive through it.
+      Front only blocked    → reverse away, turn toward the side with more
+                              clearance, drive forward.
+      Rear only blocked     → drive forward to escape whatever is behind,
+                              then turn 45° to change heading.
+      Nothing obviously     → robot is probably just lost (no wall contact);
+        blocked               nudge forward and reorient 45° to break out of
+                              any invisible loop.
+
+    Phase 2 — Post-recovery decision
+    ----------------------------------
+    Uses the token inventory to choose the safest next action:
+
+      floor_tokens ≥ 1     → go home, deposit all boxes, reset the inventory,
+                              turn back into the arena and keep searching.
+      ledge_tokens ≥ 1     → go home and stay there (ledge tokens are
+      (floor == 0)           valuable but fragile to carry; don't risk losing
+                              them chasing more).
+      no tokens at all     → just keep searching — nothing to lose.
+    """
+
+    STUCK_CM   = 30   # sonar reading below this means "blocked by a wall/obstacle"
+    CLEAR_CM   = 60   # sonar reading above this counts as a usable gap
+    BACK_DIST  = 45   # cm to reverse when front is blocked
+    FWD_DIST   = 45   # cm to drive forward when rear is blocked or after a spin
+
+    print("[recovery] reading sonars…")
+    L    = creep.left_front_sonar()
+    R    = creep.right_front_sonar()
+    rear = creep.rear_sonar()
+
+    front_blocked = L < STUCK_CM or R < STUCK_CM
+    rear_blocked  = rear < STUCK_CM
+
+    print(f"[recovery] L={L:.0f}cm  R={R:.0f}cm  rear={rear:.0f}cm  "
+          f"front_blocked={front_blocked}  rear_blocked={rear_blocked}")
+
+
+    if front_blocked and rear_blocked:
+        # Completely boxed in — spin 90° at a time looking for a gap
+        print("[recovery] boxed in — spinning to find gap")
+        freed = False
+        for _ in range(4):
+            creep.turn_speed_angle(16, 90)
+            L = creep.left_front_sonar()
+            R = creep.right_front_sonar()
+            if L > CLEAR_CM and R > CLEAR_CM:
+                print("[recovery] gap found — driving through")
+                creep.drive_speed_distance(20, FWD_DIST)
+                freed = True
+                break
+        if not freed:
+            # Last resort: drive toward whichever front sonar had most clearance
+            print("[recovery] no clean gap found — forcing through clearest direction")
+            if L > R:
+                creep.turn_speed_angle(-16, 45)   # lean left
+            else:
+                creep.turn_speed_angle(16, 45)    # lean right
+            creep.drive_speed_distance(20, FWD_DIST)
+
+    elif front_blocked:
+        # Back up, then turn toward the side with more clearance
+        print(f"[recovery] front blocked (L={L:.0f}, R={R:.0f}) — reversing then turning")
+        creep.drive_speed_distance(-20, BACK_DIST)
+        if L > R:
+            # More room on the left → turn left (negative = anti-clockwise)
+            print("[recovery] more clearance on left — turning left")
+            creep.turn_speed_angle(-16, 60)
+        else:
+            print("[recovery] more clearance on right — turning right")
+            creep.turn_speed_angle(16, 60)
+        creep.drive_speed_distance(20, FWD_DIST)
+
+    elif rear_blocked:
+        # Something caught behind us — drive forward to escape it
+        print(f"[recovery] rear blocked (rear={rear:.0f}) — driving forward")
+        creep.drive_speed_distance(20, FWD_DIST)
+        creep.turn_speed_angle(16, 45)
+
+    else:
+        # Robot isn't touching walls it's lost or spinning in place
+        print("[recovery] no walls detected — robot is lost, nudging and reorienting")
+        creep.drive_speed_distance(20, 40)
+        creep.turn_speed_angle(16, 45)
+
+    # ── Phase 2: Post-recovery decision ────────────────────────────────────
+
+    floor_count = getattr(creep, "floor_tokens_collected", 0)
+    ledge_count = getattr(creep, "ledge_tokens_collected", 0)
+
+    print(f"[recovery] inventory: floor={floor_count}  ledge={ledge_count}")
+
+    if floor_count >= 1:
+        # We're carrying floor boxes — go home, drop them off, then come back
+        print("[recovery] carrying floor token(s) — depositing then resuming search")
+        deposit_and_resume(creep)
+
+    elif ledge_count >= 1:
+        # Only a ledge (upper) token on board — valuable but fragile; stay home
+        print("[recovery] carrying ledge token only — going home to stay safe")
+        raise Exception("GO HOME NOW WE NEED THIS 1 LEDGE TOKEN") 
+        # Don't recurse back into strategy; let robot.py finally-block handle exit
+
+    else:
+        # Nothing collected yet — just keep searching
+        print("[recovery] no tokens collected — resuming search")
+        bs.strategy_base(creep)
+
+
+def deposit_and_resume(creep: CreepRobot) -> None:
+    """
+    Drive home, deposit whatever boxes are wedged in the front of the robot,
+    then turn around and hand back to bsearch for another collection run.
+    """
+    if not go_home_norm(creep):
+        print("[deposit] could not reach home — aborting deposit")
+        return
+
+    # Drop boxes into the lab zone: open doors, reverse out so they stay inside
+    print("[deposit] opening doors and reversing to release boxes")
+    creep.Doors_open()
+    creep.drive_speed_distance(-30, 70)
+    creep.Doors_wedge()
+
+    # Reset the inventory — boxes are now in the lab
+    creep.floor_tokens_collected = 0
+    print("[deposit] inventory reset — resuming search")
+
+    # Turn 180° to face back into the arena and carry on
+    creep.turn_speed_angle(16, 180)
+    bs.strategy_base(creep)
 
 
 def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
@@ -536,8 +679,63 @@ def find_home_marker(creep: CreepRobot) -> Object | None:
     return None
 
 
+def search_for_boxes(
+    creep: CreepRobot,
+    box_type: ObjectType = ObjectType.BASE,
+    sweep_step_deg: int   = 30
+) -> Object | None:
 
-def go_home_norm(creep: CreepRobot, norm_dist: float = 50.0) -> bool:
+    print(f"[search_for_boxes] starting 360° sweep (step={sweep_step_deg}°)")
+
+    best_any:    Object | None = None   # closest token of any height
+
+    steps = 360 // sweep_step_deg
+
+    for step_idx in range(steps):
+        for pan_angle in (0, 45, -45):
+            creep.camera_pan(pan_angle)
+            candidates = creep.find_objects(box_type)
+            if not candidates:
+                continue
+
+            for obj in candidates:
+                if best_any is None or obj.position < best_any.position:
+                    best_any = obj
+
+        # Stop early if we have a floor token (preferred)
+        if best_any is not None:
+            break
+
+        # Rotate to next sweep position
+        if step_idx < steps - 1:
+            creep.turn_speed_angle(16, sweep_step_deg)
+
+    creep.camera_pan(0)
+
+
+    if best_any is not None:
+        print(f"[search_for_boxes] no floor token; returning nearest token "
+              f"id={best_any.id} dist={best_any.position:.0f}cm")
+        return best_any
+
+    L, R = read_front_sonars(creep)
+    if L and R > 70:
+        creep.drive_speed_distance(40, 50)
+        return search_for_boxes(creep, box_type, sweep_step_deg)
+    elif L > 70:
+        creep.turn_speed_angle(-16, 30)
+
+    elif R > 70:
+        creep.turn_speed_angle(-16, 30)
+    
+    recovery(creep)
+    return None
+
+def read_front_sonars(creep: CreepRobot) -> tuple[float, float]:
+    """Return (left_cm, right_cm) front sonar readings."""
+    return creep.left_front_sonar(), creep.right_front_sonar()
+
+def go_home_norm(creep: CreepRobot, norm_dist: float = 20.0) -> bool:
     """
     Navigate to a position norm_dist cm in front of the closest home marker,
     perpendicular to the wall.
