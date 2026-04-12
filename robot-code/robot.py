@@ -5,16 +5,14 @@ import creep.logic.basic_strategy as bs
 import creep.logic.circler as circ
 import creep.logic.twobluefloor as twobf
 import creep.logic.faststart as fs
-import creep.logic.test as  mainstrat
+import creep.logic.faststart as  mainstrat
 
 def main():
     creep = CreepRobot()
 
-    creep.strat = twobf.TwoBlueFloor()
-
     try:
         creep.initialise()
-        creep.start.strategy_base(creep)
+        mainstrat.strategy_base(creep)
         # bs.strategy_base(creep)
     except Exception as e:
         print("An error occurred:", e)

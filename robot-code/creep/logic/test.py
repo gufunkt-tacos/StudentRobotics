@@ -1,17 +1,10 @@
 from creep.machine import *
+import creep.logic.robot_subroutines as rs
 
 def strategy_base(creep: CreepRobot):
 
-    while True:
-        objects = creep.find_objects(ObjectType.BASE)
-        if objects is None:
-            continue
-        for obj in objects:
-            print(f"Object {obj.id} has on_floor={obj.has_top_face}")
-            if obj.on_floor:
-                creep.LED_C_red()
-            else:
-                creep.LED_C_blue()
+    print(str(creep.find_objects(ObjectType.ANY)))
+    rs.get_ledge_token(creep, ObjectType.BASE, 0)
         
 
 

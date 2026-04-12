@@ -119,6 +119,39 @@ def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float 
         return virtual_token
     else:
         return None
+    
+# def find_closest_token(creep: CreepRobot, type: ObjectType, angle_offset: float = 0.0) -> Object | None:
+#     valid_tokens = creep.find_objects(type)
+#     if valid_tokens is not None and len(valid_tokens) > 0:
+#         closest_token = valid_tokens[0]
+#         for i in range(0,len(valid_tokens)):
+#             if(valid_tokens[i].position < closest_token.position):
+#                 closest_token = valid_tokens[i]
+
+#         print("angle seen = " + str(closest_token.h_angle))
+
+#         closest_token.h_angle -= int(angle_offset)
+
+#         # find_objects now returns one Object per physical cube, so same_id_tokens
+#         # will almost always be a single element.  We keep the averaging for
+#         # safety but, critically, also copy the pre-computed on_floor and
+#         # has_top_face attributes so callers don't lose that information.
+#         same_id_tokens = [token for token in valid_tokens if token.id == closest_token.id]
+#         virtual_token = Object(
+#             id       = closest_token.id,
+#             position = mean([t.position for t in same_id_tokens]),
+#             h_angle  = mean([t.h_angle  for t in same_id_tokens]),
+#             v_angle  = mean([t.v_angle  for t in same_id_tokens]),
+#             yaw      = mean([t.yaw      for t in same_id_tokens]),
+#             pitch    = mean([t.pitch    for t in same_id_tokens]),
+#             roll     = mean([t.roll     for t in same_id_tokens]),
+#         )
+#         # Preserve the floor-classification computed inside find_objects
+#         virtual_token.on_floor     = closest_token.on_floor
+#         virtual_token.has_top_face = closest_token.has_top_face
+#         return virtual_token
+#     else:
+#         return None
 
     
 def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Object, open_doors: bool, approach_only: bool = False) -> bool:
@@ -444,7 +477,7 @@ def recovery(creep: CreepRobot) -> None:
     else:
         # Nothing collected yet — just keep searching
         print("[recovery] no tokens collected — resuming search")
-        bs.strategy_base(creep)
+        return bs.strategy_base(creep)
 
 
 def deposit_and_resume(creep: CreepRobot) -> None:
@@ -608,6 +641,27 @@ def is_on_floor(creep: CreepRobot, obj: Object) -> bool:
     creep.LED_B_green()
     return True
 
+# def is_on_floor(creep: CreepRobot, obj: Object) -> bool:
+#     """
+#     Return True if the object is on the arena floor rather than on the raised
+#     central platform / ledge.
+
+#     Uses the ``on_floor`` attribute set by ``find_objects()`` (which averages
+#     side-face readings and excludes the unreliable top face before estimating
+#     height).  Falls back to the original geometric formula for any Object that
+#     was constructed without going through ``find_objects()``.
+#     """
+#     # find_objects sets on_floor from a proper multi-face averaged height.
+#     # The attribute defaults to False in __init__, so we can trust it if the
+#     # position is non-zero (a zero position means the Object was never
+#     # populated by a real camera reading).
+#     result = obj.on_floor
+#     if result:
+#         creep.LED_B_green()
+#     else:
+#         creep.LED_A_blue()
+#     return result
+
 
 def find_home_marker(creep: CreepRobot) -> Object | None:
     """
@@ -679,7 +733,7 @@ def search_for_boxes(
     steps = 360 // sweep_step_deg
 
     for step_idx in range(steps):
-        for pan_angle in (0, 45, -45):
+        for pan_angle in (0, 30, -30):
             creep.camera_pan(pan_angle)
             candidates = creep.find_objects(box_type)
             if not candidates:
@@ -704,18 +758,8 @@ def search_for_boxes(
         print(f"[search_for_boxes] no floor token; returning nearest token "
               f"id={best_any.id} dist={best_any.position:.0f}cm")
         return best_any
-
-    L, R = read_front_sonars(creep)
-    if L and R > 70:
-        creep.drive_speed_distance(40, 50)
-        return search_for_boxes(creep, box_type, sweep_step_deg)
-    elif L > 70:
-        creep.turn_speed_angle(-16, 30)
-
-    elif R > 70:
-        creep.turn_speed_angle(-16, 30)
     
-    recovery(creep)
+    
     return None
 
 def read_front_sonars(creep: CreepRobot) -> tuple[float, float]:
@@ -750,7 +794,7 @@ def go_home_norm(creep: CreepRobot, norm_dist: float = 20.0) -> bool:
     creep.turn_speed_angle(16 * sign(angle), abs(angle))
     creep.drive_speed_distance(30, dist)
     creep.drive_speed_distance(30, 50)
-    # creep.turn_speed_angle(16 * sign(final_turn), abs(final_turn))
+    creep.turn_speed_angle(16 * sign(final_turn), abs(final_turn))
 
     print("[go_home] reached home position")
     return True
@@ -1257,3 +1301,147 @@ def collect_box_from_ledge(creep: CreepRobot, obj: Object | None, cfg: LedgeConf
     print("Box successfully collected from ledge.")
     return LedgePickupResult.SUCCESS
 
+
+
+
+# ── Tunable constants ─────────────────────────────────────────────────────────
+
+WALL_STANDOFF         : float = 80.0   # cm to cruise at from the wall
+SCAN_STEP             : float = 50.0   # cm per driving segment between scans
+MAX_CARRY             : int   = 3      # go home after this many floor tokens
+HOME_BUFFER           : float = 30.0  # seconds before go_home_time to head back
+SONAR_WARN_CM         : float = 35.0  # soft obstacle threshold (cm)
+CUBE_APPROACH_CLEARANCE: float = 30.0 # stop this far short when approaching cube
+
+corner_ids = [0, 19, 14, 15, 10, 9, 4, 5]
+
+def time_remaining(creep: CreepRobot) -> float:
+    """Seconds left before the robot should head home."""
+    elapsed = time.time() - creep.time_started_game
+    return creep.go_home_time - elapsed
+
+
+def should_go_home(creep: CreepRobot) -> bool:
+    """True if it's time to head home (time-based or carrying enough cubes)."""
+    floor_count = getattr(creep, "floor_tokens_collected", 0)
+    if floor_count >= MAX_CARRY:
+        print(f"[circler] carrying {floor_count} tokens — heading home")
+        return True
+    if time_remaining(creep) <= HOME_BUFFER:
+        print(f"[circler] only {time_remaining(creep):.1f}s left — heading home")
+        return True
+    return False
+
+
+def find_floor_base_cubes(creep: CreepRobot) -> list[Object]:
+    """Return all visible BASE cubes classified as on_floor=True, sorted by distance."""
+    creep.camera_pan(0)
+    all_base = creep.find_objects(ObjectType.BASE)
+    if not all_base:
+        return []
+    floor_cubes = [o for o in all_base if o.on_floor]
+    return sorted(floor_cubes, key=lambda o: o.position)
+
+
+def sonar_obstacle_ahead(creep: CreepRobot) -> bool:
+    """Soft pre-step sonar check — returns True if anything is within SONAR_WARN_CM."""
+    L = creep.left_front_sonar()
+    R = creep.right_front_sonar()
+    blocked = L < SONAR_WARN_CM or R < SONAR_WARN_CM
+    if blocked:
+        print(f"[circler] soft obstacle: L={L:.0f}cm R={R:.0f}cm")
+    return blocked
+
+
+def align_to_wall(creep: CreepRobot) -> bool:
+    """
+    Find the nearest arena marker, drive to WALL_STANDOFF cm in front of it
+    (perpendicular, facing the wall), then turn 90° clockwise so the wall is
+    on the left.
+
+    Returns True on success, False if no arena marker is visible.
+    """
+    creep.Doors_wedge()
+    candidates = []
+
+    # Pan left, centre, right to maximise chance of seeing a marker
+    best_marker: Object | None = None
+    for pan in (0, 30, -30):
+        creep.camera_pan(pan)
+        markers = creep.find_objects(ObjectType.ARENA_MARKER)
+        if markers:
+            # Pick the closest one
+
+            for marker in markers:
+                for corner_id in corner_ids:
+                    if marker.id == corner_id:
+                        candidates.append(marker)
+            
+            if candidates:
+                candidate = min(candidates, key=lambda m: m.position)
+            else:
+                candidate = min(markers, key=lambda m: m.position) 
+
+            if best_marker is None or candidate.position < best_marker.position:
+                best_marker = candidate
+    creep.camera_pan(0)
+
+    if best_marker is None:
+        print("[circler] no arena marker visible — cannot align to wall")
+        return False
+
+    print(f"[circler] aligning to marker {best_marker.id} "
+          f"(wall {get_marker_wall(best_marker.id)}) "
+          f"at {best_marker.position:.0f}cm, h={best_marker.h_angle:.1f}°")
+
+    # Drive to the normal point WALL_STANDOFF cm in front of the marker
+    dist, angle, final_turn = get_normal_to_token(creep, best_marker, WALL_STANDOFF)
+
+    creep.turn_speed_angle(sign(angle) * 16, abs(angle))
+    creep.drive_speed_distance(30, dist)
+    # final_turn orients the robot perpendicular to the wall (facing the wall)
+    creep.turn_speed_angle(sign(final_turn) * 16, abs(final_turn))
+
+    # Now the robot faces the wall.  Turn 90° clockwise to travel along it.
+    # Clockwise from above = positive turn direction in the motor convention.
+    print("[circler] turning 90° clockwise along wall")
+    creep.turn_speed_angle(16, 90)
+
+    return True
+
+
+def collect_cube(creep: CreepRobot, cube: Object) -> bool:
+    """
+    Approach and collect a floor cube.  Uses the two-pass alignment in
+    go_to_closest_token (turn, re-read, drive, open doors, close doors).
+
+    Returns True if the cube was successfully collected.
+    """
+    print(f"[circler] collecting cube id={cube.id} "
+          f"at {cube.position:.0f}cm h={cube.h_angle:.1f}°")
+
+
+    return go_to_closest_token(creep, ObjectType.BASE, cube, open_doors=True)
+
+
+def deposit_and_realign(creep: CreepRobot) -> None:
+    """
+    Go home, drop boxes into the lab, reset inventory, then realign to a wall
+    marker ready for another circling pass.
+    """
+    print("[circler] going home to deposit")
+    if not go_home_norm(creep):
+        print("[circler] could not reach home — continuing without depositing")
+        return
+
+    # Drop boxes: open doors, reverse so boxes stay in the lab zone
+    creep.Doors_open()
+    creep.drive_speed_distance(-30, 70)
+    creep.Doors_wedge()
+
+    creep.floor_tokens_collected = 0
+    print("[circler] deposit complete — resuming circuit")
+
+    # Turn back into the arena (180°) and realign to the nearest wall
+    creep.turn_speed_angle(16, 180)
+    align_to_wall(creep)

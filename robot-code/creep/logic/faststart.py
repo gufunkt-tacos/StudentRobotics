@@ -7,7 +7,7 @@ def strategy_base(creep: CreepRobot):
 
     creep.Doors_open()
 
-    creep.drive_speed_distance(40, 150) # THIS MIGHT NEED TO CHANGED
+    creep.drive_speed_distance(40, 130) # THIS MIGHT NEED TO CHANGED
 
     creep.Doors_wedge()
 
@@ -16,7 +16,7 @@ def strategy_base(creep: CreepRobot):
         rs.go_to_closest_token(creep, ObjectType.ACID, closest_acid, False)
     else:
         creep.turn_speed_angle(16, 165)
-        rs.go_home_norm(creep, 20)
+        creep.drive_speed_distance(-40, 60)
         creep.Doors_open()
         creep.drive_speed_distance(-40, 60)
         creep.Doors_close()
