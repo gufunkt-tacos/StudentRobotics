@@ -80,6 +80,7 @@ class ObjectType(Flag):
 
 class Object:
     TOP_FACE_PITCH_THRESHOLD: float = 65.0
+    HEIGHT_THRESHOLD: float = 10
 
     def __init__(self, id: int, position: float, h_angle: float, v_angle: float, yaw: float, pitch: float, roll: float):
         self.id: int = id
@@ -1086,7 +1087,7 @@ class CreepRobot():
             d_slant = math.sqrt(avg_pos ** 2 + CAMERA_HEIGHT ** 2)
             # Positive v_angle = camera tilted up; negative = looking down
             cube_height = math.sin(math.radians(avg_v)) * d_slant + CAMERA_HEIGHT
-            obj.on_floor = cube_height < Object.FLOOR_HEIGHT_THRESHOLD
+            obj.on_floor = cube_height < Object.HEIGHT_THRESHOLD
 
             face_info = f"{len(side_faces)}side" + (f"+{len(top_faces)}top" if has_top else "")
             print(f"[find_objects] key={key} id={representative_id} "

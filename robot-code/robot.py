@@ -10,8 +10,6 @@ import creep.logic.test as  mainstrat
 def main():
     creep = CreepRobot()
 
-    creep.strat = twobf.TwoBlueFloor()
-
     try:
         creep.initialise()
         mainstrat.strategy_base(creep)
