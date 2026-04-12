@@ -10,9 +10,11 @@ import creep.logic.test as  mainstrat
 def main():
     creep = CreepRobot()
 
+    creep.strat = twobf.TwoBlueFloor()
+
     try:
         creep.initialise()
-        mainstrat.strategy_base(creep)
+        creep.start.strategy_base(creep)
         # bs.strategy_base(creep)
     except Exception as e:
         print("An error occurred:", e)
