@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from statistics import mean
 from .basic_logic import pick_up_box
-import creep.logic.bsearch as bsearch
+import creep.logic.basic_strategy as bs
+
 
 
 @dataclass
@@ -443,7 +444,7 @@ def recovery(creep: CreepRobot) -> None:
     else:
         # Nothing collected yet — just keep searching
         print("[recovery] no tokens collected — resuming search")
-        bsearch.strategy_base(creep)
+        bs.strategy_base(creep)
 
 
 def deposit_and_resume(creep: CreepRobot) -> None:
@@ -467,7 +468,7 @@ def deposit_and_resume(creep: CreepRobot) -> None:
 
     # Turn 180° to face back into the arena and carry on
     creep.turn_speed_angle(16, 180)
-    bsearch.strategy_base(creep)
+    bs.strategy_base(creep)
 
 
 def get_floor_token(creep: CreepRobot, type: ObjectType) -> bool:
