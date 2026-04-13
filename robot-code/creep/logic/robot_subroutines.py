@@ -196,7 +196,6 @@ def go_to_closest_token(creep: CreepRobot, type: ObjectType, closest_token: Obje
         open_door_thread.start()
         if not creep.drive_speed_distance(40, 50):
             return False
-        creep.Doors_close()
         creep.Doors_wedge()
         creep.floor_tokens_collected += 1
     else:
@@ -350,6 +349,7 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
     #     square_to_ledge(creep, None)
 
     get_in_position(creep)
+    creep.drive_speed_distance(16, 2)
     if pick_up_box(creep):
         creep.ledge_tokens_collected += 1
 
@@ -360,6 +360,7 @@ def get_ledge_token(creep: CreepRobot, type: ObjectType, angle_to_ledge: int):
 
     creep.drive_speed_distance_objchk(-16,50,20)
     creep.turn_speed_angle(-16*sign(angle_to_ledge),abs(angle_to_ledge))
+    return True
 
 def recovery(creep: CreepRobot) -> None:
     """
@@ -796,7 +797,6 @@ def go_home_norm(creep: CreepRobot, norm_dist: float = 20.0) -> bool:
     creep.turn_speed_angle(16 * sign(angle), abs(angle))
     creep.drive_speed_distance(30, dist)
     creep.turn_speed_angle(16 * sign(final_turn), abs(final_turn))
-    creep.drive_speed_distance(30, 50)
     
 
     print("[go_home] reached home position")

@@ -8,7 +8,7 @@ def pick_up_box(creep: CreepRobot) -> bool:
     # Move arm to pick up position
     creep.Arm_tilt_up()
     creep.Arm_Extend(1)
-    time.sleep(6)
+    time.sleep(7)
     creep.VacValve("GRIP")
     creep.VacPump(1)
     creep.Arm_tilt_down()

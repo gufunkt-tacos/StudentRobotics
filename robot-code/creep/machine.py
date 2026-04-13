@@ -1338,6 +1338,7 @@ class CreepRobot():
         self.turn_timeout_time = 10
         self.turn_timeout = False
         self.I2C_device_detected = False
+        self.time_elapsed = 0
 
         print("finished CreepRobot __init__")
     
@@ -1410,11 +1411,13 @@ class CreepRobot():
 
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         # *********************** Relocated R.wait_start() ****************************
-        self.time_elapsed = time.time() - self.time_started_robot    # Time from initial switch on for initialisatiom 
+            # Time from initial switch on for initialisatiom 
         print ("Initialised in ",round(self.time_elapsed,0)," seconds")
         
         self.startup_jingle()
         self.robot.wait_start()
+        self.time_elapsed = time.time() - self.time_started_robot
+        
 
         self.my_lab = []
         if robot_mode == DEV:

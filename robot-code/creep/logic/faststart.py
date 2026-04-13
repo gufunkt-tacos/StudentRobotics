@@ -35,7 +35,7 @@ def strategy_base(creep: CreepRobot):
     
     closest_basic = rs.find_closest_token(creep, ObjectType.BASE, 0)
     if closest_basic is not None:
-        rs.go_to_closest_token(creep, ObjectType.BASE, closest_basic, False)
+        rs.go_to_closest_token(creep, ObjectType.BASE, closest_basic, True)
         creep.turn_speed_angle(16, 165)
         return
     else:
